@@ -5,7 +5,4 @@ contract CoverToken {
 
     constructor() {}
 
-    // TODO: mint token
-    // TODO: burn token
-    // TODO: set permissions
 }
