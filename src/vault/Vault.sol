@@ -1,57 +1,121 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+//@dev Custom Errors
+error AmountMismatch();
+error InsufficientBalance(uint256 requested, uint256 available);
+error InsufficientContractBalance(uint256 requested, uint256 available);
+error TransferFailed();
+error LRTNotWhitelisted(address lrt);
+error ZeroAmount();
+error InsufficientLRTBalance(uint256 requested, uint256 available);
+error InsufficientAllowance(uint256 requested, uint256 allowed);
+error DirectETHNotAllowed();
+
 
 contract Vault {
-    // mapping of whitelisted LSTs
-    mapping(address => bool) public whitelistedLsts;
-    //@dev Mapping to track user deposits
-    mapping(address => uint256) public lps;
+    //@dev mapping of whitelisted LSTs
+    mapping(address => bool) public whitelistedLRTs;
+    //@dev Mapping to track user eth deposits
+    mapping(address => uint256) public ethlps;
+    //@dev Mapping to track user lrt deposits
+    mapping(address => mapping(address => uint256)) public lrtlps;
+
     //@dev oracle address
     address public oracle;
 
-    constructor(address[] memory _lsts, address _oracle) {
-        for(uint i = 0; i < _lsts.length; i++) {
-            whitelistedLsts[_lsts[i]] = true;
+    //@dev   constructor
+    //@param _lrts - the list of LRTs to whitelist
+    //@param _oracle - the oracle address
+    constructor(address[] memory _lrts, address _oracle) {
+        for(uint i = 0; i < _lrts.length; i++) {
+            whitelistedLRTs[_lrts[i]] = true;
         }
         oracle = _oracle;
     }
 
-    //@dev deposit ETH to the vault
+    //@dev   deposit ETH to the vault
+    //@param amount - the amount of ETH to deposit
     function depositETH(uint256 amount) public payable {
-        require(msg.value == amount, "Amount mismatch");
-        lps[msg.sender] += amount;
+        if (msg.value != amount) revert AmountMismatch();
+        ethlps[msg.sender] += amount;
     }
 
-    //@dev withdraw ETH from the vault
+    //@dev   withdraw ETH from the vault
+    //@param amount - the amount of ETH to withdraw
     function withdrawETH(uint256 amount) public {
-        require(lps[msg.sender] >= amount, "Insufficient balance");
-        require(address(this).balance >= amount, "Insufficient contract balance");
+        if (ethlps[msg.sender] < amount) revert InsufficientBalance(amount, ethlps[msg.sender]);
+        if (address(this).balance < amount) revert InsufficientContractBalance(amount, address(this).balance);
         
-        lps[msg.sender] -= amount;
+        ethlps[msg.sender] -= amount;
         (bool success, ) = payable(msg.sender).call{value: amount}("");
-        require(success, "ETH transfer failed");
+        if (!success) revert TransferFailed();
     }
 
-    // TODO: deposit LST from the list
+    //@dev   deposit LRT tokens to the vault
+    //@param lrt - the LRT token address
+    //@param amount - the amount of LRT tokens to deposit
+    function depositLRT(address lrt, uint256 amount) public {
+        if (!whitelistedLRTs[lrt]) revert LRTNotWhitelisted(lrt);
+        if (amount == 0) revert ZeroAmount();
+        
+        IERC20 token = IERC20(lrt);
+        uint256 userBalance = token.balanceOf(msg.sender);
+        uint256 userAllowance = token.allowance(msg.sender, address(this));
 
-    // TODO: withdraw LST from the contract
+        if (userBalance < amount) revert InsufficientLRTBalance(amount, userBalance);
+        if (userAllowance < amount) revert InsufficientAllowance(amount, userAllowance);
 
-    // TODO: check the balance of ETH in the contract
+        bool success = token.transferFrom(msg.sender, address(this), amount);
+        if (!success) revert TransferFailed();
 
-    // TODO: check the balance of a speciefic LST in the contract
+        lrtlps[lrt][msg.sender] += amount;
+    }
 
-    //@dev Check if LST is whitelisted
-    function isWhitelistedLst(address lst) public view returns (bool) {
-        return whitelistedLsts[lst];
+    //@dev withdraw LRT tokens from the vault
+    //@param lrt - the LRT token address
+    //@param amount - the amount of LRT tokens to withdraw
+    function withdrawLRT(address lrt, uint256 amount) public {
+        if (!whitelistedLRTs[lrt]) revert LRTNotWhitelisted(lrt);
+        if (amount == 0) revert ZeroAmount();
+        
+        uint256 userBalance = lrtlps[lrt][msg.sender];
+        if (userBalance < amount) revert InsufficientLRTBalance(amount, userBalance);
+
+        IERC20 token = IERC20(lrt);
+        uint256 contractBalance = token.balanceOf(address(this));
+        if (contractBalance < amount) revert InsufficientContractBalance(amount, contractBalance);
+
+        bool success = token.transfer(msg.sender, amount);
+        if (!success) revert TransferFailed();
+
+        lrtlps[lrt][msg.sender] -= amount;
+    }
+
+    //@dev Get the ETH balance of the contract
+    function getETHBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+
+    //@dev Get the LRT token balance of the contract
+    //@param lrt - the LRT token address
+    function getLRTBalance(address lrt) public view returns (uint256) {
+        if (!whitelistedLRTs[lrt]) revert LRTNotWhitelisted(lrt);
+        return IERC20(lrt).balanceOf(address(this));
+    }
+    //@dev Check if LRT is whitelisted
+    function isWhitelistedLst(address lrt) public view returns (bool) {
+        return whitelistedLRTs[lrt];
     }
 
     //@dev Prevent direct ETH transfers
     receive() external payable {
-        revert("Direct ETH transfers not allowed");
+        revert DirectETHNotAllowed();
     }
 
     //@dev Prevent direct ETH transfers with fallback
     fallback() external payable {
-        revert("Direct ETH transfers not allowed"); 
+        revert DirectETHNotAllowed();
     }
 }
