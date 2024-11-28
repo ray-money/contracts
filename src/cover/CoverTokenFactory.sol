@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 // In your factory contract:
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import "lib/openzeppelin-contracts/contracts/proxy/Clones.sol";
 import "./CoverToken.sol";  // Add this import
 
 contract CoverTokenFactory {
