@@ -66,7 +66,6 @@ contract Vault {
         lrtlps[lrt][msg.sender] += amount;
         bool success = token.transferFrom(msg.sender, address(this), amount);
         if (!success) revert TransferFailed();
-
     }
 
     //@dev   withdraw LRT tokens from the vault
