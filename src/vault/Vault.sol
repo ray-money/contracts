@@ -14,7 +14,7 @@ error InsufficientAllowance(uint256 requested, uint256 allowed);
 error DirectETHNotAllowed();
 
 contract Vault {
-    //@dev mapping of whitelisted LSTs
+    //@dev mapping of whitelisted LRTs
     mapping(address => bool) public whitelistedLRTs;
     //@dev Mapping to track user eth deposits
     mapping(address => uint256) public ethlps;
