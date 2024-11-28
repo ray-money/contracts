@@ -13,7 +13,6 @@ error InsufficientLRTBalance(uint256 requested, uint256 available);
 error InsufficientAllowance(uint256 requested, uint256 allowed);
 error DirectETHNotAllowed();
 
-
 contract Vault {
     //@dev mapping of whitelisted LSTs
     mapping(address => bool) public whitelistedLRTs;
@@ -46,7 +45,6 @@ contract Vault {
     //@param amount - the amount of ETH to withdraw
     function withdrawETH(uint256 amount) public {
         if (ethlps[msg.sender] < amount) revert InsufficientBalance(amount, ethlps[msg.sender]);
-        if (address(this).balance < amount) revert InsufficientContractBalance(amount, address(this).balance);
         
         ethlps[msg.sender] -= amount;
         (bool success, ) = payable(msg.sender).call{value: amount}("");
@@ -61,36 +59,32 @@ contract Vault {
         if (amount == 0) revert ZeroAmount();
         
         IERC20 token = IERC20(lrt);
-        uint256 userBalance = token.balanceOf(msg.sender);
-        uint256 userAllowance = token.allowance(msg.sender, address(this));
 
-        if (userBalance < amount) revert InsufficientLRTBalance(amount, userBalance);
-        if (userAllowance < amount) revert InsufficientAllowance(amount, userAllowance);
-
+        if (token.balanceOf(msg.sender) < amount) revert InsufficientLRTBalance(amount,  token.balanceOf(msg.sender));
+        if (token.allowance(msg.sender, address(this)) < amount) revert InsufficientAllowance(amount, address(this));
+        
+        lrtlps[lrt][msg.sender] += amount;
         bool success = token.transferFrom(msg.sender, address(this), amount);
         if (!success) revert TransferFailed();
 
-        lrtlps[lrt][msg.sender] += amount;
     }
 
-    //@dev withdraw LRT tokens from the vault
+    //@dev   withdraw LRT tokens from the vault
     //@param lrt - the LRT token address
     //@param amount - the amount of LRT tokens to withdraw
     function withdrawLRT(address lrt, uint256 amount) public {
         if (!whitelistedLRTs[lrt]) revert LRTNotWhitelisted(lrt);
         if (amount == 0) revert ZeroAmount();
         
-        uint256 userBalance = lrtlps[lrt][msg.sender];
-        if (userBalance < amount) revert InsufficientLRTBalance(amount, userBalance);
+        if (lrtlps[lrt][msg.sender] < amount) revert InsufficientLRTBalance(amount, lrtlps[lrt][msg.sender]);
 
         IERC20 token = IERC20(lrt);
-        uint256 contractBalance = token.balanceOf(address(this));
-        if (contractBalance < amount) revert InsufficientContractBalance(amount, contractBalance);
+        if (token.balanceOf(address(this)) < amount) revert InsufficientContractBalance(amount, token.balanceOf(address(this)));
+
+        lrtlps[lrt][msg.sender] -= amount;
 
         bool success = token.transfer(msg.sender, amount);
         if (!success) revert TransferFailed();
-
-        lrtlps[lrt][msg.sender] -= amount;
     }
 
     //@dev Get the ETH balance of the contract
@@ -98,12 +92,12 @@ contract Vault {
         return address(this).balance;
     }
 
-    //@dev Get the LRT token balance of the contract
+    //@dev   Get the LRT token balance of the contract
     //@param lrt - the LRT token address
     function getLRTBalance(address lrt) public view returns (uint256) {
-        if (!whitelistedLRTs[lrt]) revert LRTNotWhitelisted(lrt);
         return IERC20(lrt).balanceOf(address(this));
     }
+
     //@dev Check if LRT is whitelisted
     function isWhitelistedLst(address lrt) public view returns (bool) {
         return whitelistedLRTs[lrt];
