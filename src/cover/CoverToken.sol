@@ -10,6 +10,13 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     address public ltvManager;
     bool private initialized;
 
+    error AlreadyInitialized();
+    error InvalidOwner();
+    error InvalidLTVManager();
+    error InvalidName();
+    error InvalidSymbol();
+    error AmountExceedsLTVLimit(uint256 amount, uint256 maxAmount);
+
     /** 
      * @dev Initialization function for the cloned contract
      * @param _owner - the owner of the contract, could be Controller.sol
@@ -23,11 +30,11 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         string memory _name,
         string memory _symbol
     ) external {
-        require(!initialized, "Already initialized");
-        require(_owner != address(0), "Invalid owner");
-        require(_ltvManager != address(0), "Invalid LTV manager");
-        require(bytes(_name).length > 0, "Invalid name");
-        require(bytes(_symbol).length > 0, "Invalid symbol");
+        if (initialized) revert AlreadyInitialized();
+        if (_owner == address(0)) revert InvalidOwner();
+        if (_ltvManager == address(0)) revert InvalidLTVManager();
+        if (bytes(_name).length == 0) revert InvalidName();
+        if (bytes(_symbol).length == 0) revert InvalidSymbol();
         
         __ERC20_init(_name, _symbol);
         _transferOwnership(_owner);
@@ -51,7 +58,7 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
             // Get max allowed amount for LRT token deposits
             maxAmount = ILTVManager(ltvManager).calculateLRTLTV(token);
         }
-        require(amount <= maxAmount, "Amount exceeds LTV limit");
+        if (amount > maxAmount) revert AmountExceedsLTVLimit(amount, maxAmount);
         _mint(to, amount);
     }
 
