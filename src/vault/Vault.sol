@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.24;
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 //@dev Custom Errors
@@ -61,7 +61,7 @@ contract Vault {
         IERC20 token = IERC20(lrt);
 
         if (token.balanceOf(msg.sender) < amount) revert InsufficientLRTBalance(amount,  token.balanceOf(msg.sender));
-        if (token.allowance(msg.sender, address(this)) < amount) revert InsufficientAllowance(amount, address(this));
+        if (token.allowance(msg.sender, address(this)) < amount) revert InsufficientAllowance(amount, token.allowance(msg.sender, address(this)));
         
         lrtlps[lrt][msg.sender] += amount;
         bool success = token.transferFrom(msg.sender, address(this), amount);

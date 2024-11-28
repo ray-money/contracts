@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
-// In your factory contract:
+pragma solidity ^0.8.24;
+
 import "lib/openzeppelin-contracts/contracts/proxy/Clones.sol";
-import "./CoverToken.sol";  // Add this import
+import "./CoverToken.sol";
 
 contract CoverTokenFactory {
     address immutable implementation;
@@ -11,9 +11,14 @@ contract CoverTokenFactory {
         implementation = _implementation;
     }
     
-    function createCoverToken(address owner, address ltvManager) external returns (address) {
+    function createCoverToken(
+        address owner,
+        address ltvManager,
+        string memory name,
+        string memory symbol
+    ) external returns (address) {
         address clone = Clones.clone(implementation);
-        CoverToken(clone).initialize(owner, ltvManager);
+        CoverToken(clone).initialize(owner, ltvManager, name, symbol);
         return clone;
     }
 }
