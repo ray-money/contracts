@@ -28,5 +28,4 @@ contract LTVManager {
         uint256 ltv = (lrtBalance * 100) / 90;
         return ltv;
     }
-
 }
