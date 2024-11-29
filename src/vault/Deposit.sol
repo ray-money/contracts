@@ -13,7 +13,7 @@ error InsufficientLRTBalance(uint256 requested, uint256 available);
 error InsufficientAllowance(uint256 requested, uint256 allowed);
 error DirectETHNotAllowed();
 
-contract Vault {
+contract Deposit {
     //@dev mapping of whitelisted LRTs
     mapping(address => bool) public whitelistedLRTs;
     //@dev Mapping to track user eth deposits

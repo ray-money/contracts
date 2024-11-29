@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-interface IVault {
+interface IDeposit {
     function whitelistedLRTs(address) external view returns (bool);
     function ethlps(address) external view returns (uint256);
     function lrtlps(address, address) external view returns (uint256);
