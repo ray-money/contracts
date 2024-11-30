@@ -16,7 +16,7 @@ contract LTVManager {
          * of cover tokens that can be minted, this could be adjusted
          * based on the python simulations
          */
-        uint256 ltv = (ethBalance * 100) / 90;
+        uint256 ltv = (ethBalance * 90) / 100;
         return ltv;
     }
 
@@ -29,7 +29,7 @@ contract LTVManager {
          * of cover tokens that can be minted, this could be adjusted
          * based on the python simulations
          */
-        uint256 ltv = (lrtBalance * 100) / 90;
+        uint256 ltv = (lrtBalance * 90) / 100;
         return ltv;
     }
 }
