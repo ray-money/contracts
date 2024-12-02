@@ -13,14 +13,17 @@ contract Controller {
     
     /// @notice The cover token factory contract instance
     ICoverTokenFactory public immutable coverTokenFactory;
-    
+
+    /// @notice The network middleware contract instance
+    INetworkMiddleware public immutable networkMiddleware;
+
     /// @notice Mapping from base asset (ETH/LRT) to its cover token instance
     mapping(address => address) public coverTokens;
 
     constructor(
         address _deposit,
-        address _coverTokenFactory,
-        address _networkMiddleware
+        address _networkMiddleware,
+        address _coverTokenFactory
     ) {
         deposit = IDeposit(_deposit);
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
