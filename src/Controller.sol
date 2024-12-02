@@ -20,12 +20,25 @@ contract Controller {
     /// @notice Mapping from base asset (ETH/LRT) to its cover token instance
     mapping(address => address) public coverTokens;
 
+    /// @notice The oracle contract instance
+    address public immutable oracle;
+
+    error NotOracle();
+    error NoCoverTokenForAsset();
+
+    modifier onlyOracle() {
+        if (msg.sender != oracle) revert NotOracle();
+        _;
+    }
+
     constructor(
         address _networkMiddleware,
-        address _coverTokenFactory
+        address _coverTokenFactory,
+        address _oracle
     ) {
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
+        oracle = _oracle;
     }
 
     /**
@@ -84,7 +97,7 @@ contract Controller {
     ) external {
         // Get cover token for this asset
         address coverToken = coverTokens[token];
-        require(coverToken != address(0), "No cover token exists for asset");
+        if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Initiate withdrawal from vault through middleware
         networkMiddleware.withdrawFromVault(vault, amount, onBehalfOf);
@@ -105,7 +118,7 @@ contract Controller {
     ) external {
         // Get cover token for this asset
         address coverToken = coverTokens[token];
-        require(coverToken != address(0), "No cover token exists for asset");
+        if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Calculate amount of cover tokens to burn based on LTV
         uint256 coverTokenAmount = ltvManager.calculateLTV(token);
