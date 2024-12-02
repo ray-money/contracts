@@ -33,7 +33,7 @@ contract Controller {
      * @param vault The address of the vault to deposit to
      * @param token The address of the token being deposited
      * @param amount The amount of tokens to deposit
-     * @param onBehalfOf The address to credit the deposit and cover tokens to
+     * @param onBehalfOf The address to credit the deposit to
      */
     function deposit(
         address vault,
@@ -62,8 +62,8 @@ contract Controller {
         // Calculate amount of cover tokens to mint based on LTV
         uint256 coverTokenAmount = ltvManager.calculateLTV(token);
 
-        // Mint cover tokens to the depositor
-        ICoverToken(coverToken).mint(onBehalfOf, coverTokenAmount);
+        // Mint cover tokens to this contract instead of depositor
+        ICoverToken(coverToken).mint(address(this), coverTokenAmount);
     }
 
     /**
