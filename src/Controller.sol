@@ -70,13 +70,13 @@ contract Controller {
     }
 
     /**
-     * @notice Withdraws tokens from a vault through the network middleware and burns cover tokens
+     * @notice Initiates a withdrawal request from a vault through the network middleware
      * @param vault The address of the vault to withdraw from
      * @param token The address of the token being withdrawn
      * @param amount The amount of tokens to withdraw
-     * @param onBehalfOf The address to debit the withdrawal and cover tokens from
+     * @param onBehalfOf The address to debit the withdrawal from
      */
-    function withdraw(
+    function initiateWithdraw(
         address vault,
         address token,
         uint256 amount,
@@ -86,14 +86,35 @@ contract Controller {
         address coverToken = coverTokens[token];
         require(coverToken != address(0), "No cover token exists for asset");
 
+        // Initiate withdrawal from vault through middleware
+        networkMiddleware.withdrawFromVault(vault, amount, onBehalfOf);
+    }
+
+    /**
+     * @notice Claims withdrawn tokens from a vault and burns the associated cover tokens
+     * @param vault The address of the vault to claim from
+     * @param token The address of the token being claimed
+     * @param recipient The address to receive the withdrawn tokens
+     * @param epoch The epoch to claim from
+     */
+    function claimWithdrawal(
+        address vault,
+        address token,
+        address recipient,
+        uint256 epoch
+    ) external {
+        // Get cover token for this asset
+        address coverToken = coverTokens[token];
+        require(coverToken != address(0), "No cover token exists for asset");
+
         // Calculate amount of cover tokens to burn based on LTV
         uint256 coverTokenAmount = ltvManager.calculateLTV(token);
 
-        // Burn cover tokens from the withdrawer
-        ICoverToken(coverToken).burn(onBehalfOf, coverTokenAmount);
+        // Burn cover tokens from the recipient
+        ICoverToken(coverToken).burn(recipient, coverTokenAmount);
 
-        // Withdraw tokens from vault through middleware
-        networkMiddleware.withdrawFromVault(vault, amount, onBehalfOf);
+        // Claim tokens from vault through middleware
+        networkMiddleware.claimFromVault(vault, recipient, epoch);
     }
 
 }
