@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 //@dev Custom Errors
 error AmountMismatch();
@@ -14,7 +14,7 @@ error InsufficientAllowance(uint256 requested, uint256 allowed);
 error DirectETHNotAllowed();
 
 contract Vault {
-    //@dev mapping of whitelisted LSTs
+    //@dev mapping of whitelisted LRTs
     mapping(address => bool) public whitelistedLRTs;
     //@dev Mapping to track user eth deposits
     mapping(address => uint256) public ethlps;
@@ -66,7 +66,6 @@ contract Vault {
         lrtlps[lrt][msg.sender] += amount;
         bool success = token.transferFrom(msg.sender, address(this), amount);
         if (!success) revert TransferFailed();
-
     }
 
     //@dev   withdraw LRT tokens from the vault
