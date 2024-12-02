@@ -92,6 +92,25 @@ contract Controller {
     }
 
     /**
+     * @notice Allows users to buy cover tokens directly from the contract
+     * @notice Price discovery is yet to be implemented!
+     * @param token The address of the underlying token for which cover is needed
+     * @param amount The amount of cover tokens to buy
+     * @dev User must approve this contract to spend their tokens
+     */
+    function buyCoverToken(address token, uint256 amount) external {
+        // Get cover token for this asset
+        address coverToken = coverTokens[token];
+        if (coverToken == address(0)) revert NoCoverTokenForAsset();
+
+        // Transfer tokens from user to this contract
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        // Transfer cover tokens from this contract to the buyer
+        IERC20(coverToken).transfer(msg.sender, amount);
+    }
+
+    /**
      * @notice Initiates a withdrawal request from a vault through the network middleware
      * @param vault The address of the vault to withdraw from
      * @param token The address of the token being withdrawn
