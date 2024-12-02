@@ -19,11 +19,40 @@ interface INetworkMiddleware {
     function middlewareService() external view returns (INetworkMiddlewareService);
     function operatorRewards() external view returns (IDefaultOperatorRewards);
 
-    function deployNetwork() external returns (address);
+    function deployNetwork() external returns (address network);
     function authorizeVault(address vault) external;
     function deauthorizeVault(address vault) external;
     function isAuthorizedVault(address vault) external view returns (bool);
     function getAuthorizedVaults() external view returns (address[] memory);
+
+    function depositToVault(
+        address vault,
+        uint256 amount,
+        address onBehalfOf
+    ) external;
+
+    function withdrawFromVault(
+        address vault,
+        uint256 amount,
+        address claimer
+    ) external;
+
+    function claimFromVault(
+        address vault,
+        address recipient,
+        uint256 epoch
+    ) external;
+
+    function getVaultActiveBalance(
+        address vault,
+        address account
+    ) external view returns (uint256);
+
+    function allocateStake(
+        address vault,
+        address validator,
+        uint256 amount
+    ) external;
     
     function slash(
         address vault,
