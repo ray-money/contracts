@@ -54,8 +54,8 @@ contract Controller {
                 address(this),
                 address(ltvManager),
                 token,
-                "Cover Token", // TODO: Add naming system
-                "CVR"
+                string(abi.encodePacked("Cover ", IERC20(token).name())),
+                string(abi.encodePacked("c", IERC20(token).symbol()))
             );
         }
 
