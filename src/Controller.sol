@@ -41,6 +41,9 @@ contract Controller {
         uint256 amount,
         address onBehalfOf
     ) external {
+        // Transfer tokens from user to middleware
+        IERC20(token).safeTransferFrom(msg.sender, address(networkMiddleware), amount);
+
         // Deposit tokens to vault through middleware
         networkMiddleware.depositToVault(vault, amount, onBehalfOf);
 

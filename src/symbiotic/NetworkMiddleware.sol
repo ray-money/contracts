@@ -145,6 +145,9 @@ contract NetworkMiddleware is Ownable {
         uint256 amount,
         address onBehalfOf
     ) external onlyOwner onlyAuthorized(vault) {
+        // Approve vault to spend tokens
+        IERC20(token).approve(vault, amount);
+        // Deposit into vault
         IVault(vault).deposit(onBehalfOf, amount);
     }
 
