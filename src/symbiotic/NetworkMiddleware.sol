@@ -24,6 +24,13 @@ import {INetworkMiddlewareService} from "lib/core/src/interfaces/service/INetwor
 import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 
 /** 
+ * @notice IVaultConfigurator - Handles vault configuration and setup
+ * Responsible for creating and initializing new vaults with specified parameters
+ * Manages vault deployment with associated delegator and slasher contracts
+ */
+import {IVaultConfigurator} from "lib/core/src/interfaces/IVaultConfigurator.sol";
+
+/** 
  * @notice ISlasher - Handles punishment mechanisms for malicious or misbehaving validators/operators
  * @notice IVetoSlasher - Provides mechanism to prevent or override slashing actions for governance/safety
  */
@@ -58,6 +65,11 @@ contract Network {
 contract NetworkMiddleware is Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    /// @notice VaultConfigurator reference
+    IVaultConfigurator public immutable vaultConfigurator;
+    /// @notice Burner address
+    address public burner;
+
     /// @notice Registry contract for managing network registration and status
     INetworkRegistry public immutable networkRegistry;
     
@@ -67,6 +79,7 @@ contract NetworkMiddleware is Ownable {
     error UnauthorizedVault(address vault);
     error VaultAlreadyAuthorized(address vault);
     error VaultNotAuthorized(address vault);
+    error InvalidBurnerAddress(address burner);
 
     event NetworkDeployed(address network);
     event VaultAuthorized(address vault);
@@ -80,8 +93,15 @@ contract NetworkMiddleware is Ownable {
 
     /// @notice Initializes the middleware contract
     /// @param _operatorRewards Address of the operator rewards contract
-    constructor(IDefaultOperatorRewards _operatorRewards) Ownable(msg.sender) {
+    constructor(
+        IDefaultOperatorRewards _operatorRewards,
+        VaultConfigurator _vaultConfigurator,
+        address _burner
+    ) Ownable(msg.sender) {
+        if (_burner == address(0)) revert InvalidBurnerAddress(_burner);
         operatorRewards = _operatorRewards;
+        vaultConfigurator = _vaultConfigurator;
+        burner = _burner;
     }
 
     /**
@@ -95,18 +115,70 @@ contract NetworkMiddleware is Ownable {
     }
 
     /**
-     * @notice Adds a vault to the set of authorized vaults
-     * @param vault The address of the vault to authorize
-     * @dev Only callable by contract owner
-     * @dev Reverts with VaultAlreadyAuthorized if vault is already authorized
+     * @notice Creates and authorizes a new vault using VaultConfigurator
+     * @param collateral The collateral token address
+     * @param epochDuration The epoch duration
+     * @param defaultAdmin The default admin address
+     * @return vault The address of the created vault
+     * @return delegator The address of the created delegator
+     * @return slasher The address of the created slasher
      */
-    function authorizeVault(address vault) external onlyOwner {
-        if (vaults.contains(vault)) {
+    function createAndAuthorizeVault(
+        address collateral,
+        uint48 epochDuration,
+        address defaultAdmin
+    ) external onlyOwner returns (
+        address vault,
+        address delegator,
+        address slasher
+    ) {
+        // Encode vault initialization parameters
+        bytes memory vaultParams = abi.encode(
+            Vault.InitParams({
+                collateral: collateral,
+                burner: burner,
+                epochDuration: epochDuration,
+                depositWhitelist: false,
+                isDepositLimit: false,
+                depositLimit: 0,
+                defaultAdminRoleHolder: defaultAdmin,
+                depositWhitelistSetRoleHolder: defaultAdmin,
+                depositorWhitelistRoleHolder: defaultAdmin,
+                isDepositLimitSetRoleHolder: defaultAdmin,
+                depositLimitSetRoleHolder: defaultAdmin
+            })
+        );
+
+        // Create vault using VaultConfigurator
+        (vault, delegator, slasher) = vaultConfigurator.create(
+            IVaultConfigurator.InitParams({
+                version: 1, //TODO; add versioning system
+                owner: address(this), //TODO; confirm owner, maybe pass Controller as owner
+                vaultParams: vaultParams,
+                delegatorIndex: 0, // Use appropriate index
+                delegatorParams: "", // Add delegator params if needed
+                withSlasher: true,
+                slasherIndex: 0, // Use appropriate index
+                slasherParams: "" // Add slasher params if needed
+            })
+        );
+
+        // Add to authorized vaults
+        if (!vaults.add(vault)) {
             revert VaultAlreadyAuthorized(vault);
         }
 
-        vaults.add(vault);
         emit VaultAuthorized(vault);
+    }
+
+    /**
+     * @notice Updates the burner address
+     * @param _burner The new burner address
+     */
+    function updateBurner(address _burner) external onlyOwner {
+        if (_burner == address(0)) revert InvalidBurnerAddress(_burner);
+        burner = _burner;
+        emit BurnerUpdated(_burner);
     }
 
     /**
