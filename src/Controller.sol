@@ -54,6 +54,15 @@ contract Controller {
         uint256 amount,
         address onBehalfOf
     ) external {
+        // Create vault if it doesn't exist, otherwise deposit directly
+        if (!networkMiddleware.isAuthorizedVault(vault)) {
+            (vault,,) = networkMiddleware.createAndAuthorizeVault(
+                token,
+                7 days, // Default epoch duration
+                address(this) // This contract as admin
+            );
+        }
+
         // Transfer tokens from user to middleware
         IERC20(token).safeTransferFrom(msg.sender, address(networkMiddleware), amount);
 
