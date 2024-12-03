@@ -69,6 +69,8 @@ contract NetworkMiddleware is Ownable {
     IVaultConfigurator public immutable vaultConfigurator;
     /// @notice Burner address
     address public burner;
+    /// @notice Network address
+    address public network;
 
     /// @notice Registry contract for managing network registration and status
     INetworkRegistry public immutable networkRegistry;
@@ -253,9 +255,9 @@ contract NetworkMiddleware is Ownable {
         uint256 amount,
         uint48 timestamp
     ) external onlyOwner onlyAuthorized(vault) {
-        bytes32 network = bytes32(bytes20(address(this)));
+        bytes32 networkId = bytes32(bytes20(network));
         ISlasher(IVault(vault).slasher()).slash(
-            network,
+            networkId,
             validator,
             amount,
             timestamp,
@@ -275,7 +277,6 @@ contract NetworkMiddleware is Ownable {
         address token,
         uint256 amount
     ) external onlyOwner onlyAuthorized(stakerRewards.VAULT()) {
-        address network = address(this);
         stakerRewards.distributeRewards(network, token, amount, bytes(""));
     }
 
@@ -291,7 +292,6 @@ contract NetworkMiddleware is Ownable {
         uint256 amount,
         bytes32 root
     ) external onlyOwner {
-        address network = address(this);
         operatorRewards.distributeRewards(network, token, amount, root);
     }
 }
