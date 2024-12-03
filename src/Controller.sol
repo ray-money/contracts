@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 import {ICoverTokenFactory} from "./interfaces/ICoverTokenFactory.sol";
 import {ILTVManager} from "./interfaces/ILTVManager.sol";
 import {ICoverToken} from "./interfaces/ICoverToken.sol";
@@ -43,7 +44,7 @@ contract Controller {
     }
 
     /**
-     * @notice Deposits tokens into a vault through the network middleware
+     * @notice Deposits tokens directly into a vault
      * @param vault The address of the vault to deposit to
      * @param token The address of the token being deposited
      * @param amount The amount of tokens to deposit
@@ -64,11 +65,11 @@ contract Controller {
             );
         }
 
-        // Transfer tokens from user to middleware
-        IERC20(token).safeTransferFrom(msg.sender, address(networkMiddleware), amount);
+        // Transfer tokens from user to vault
+        IERC20(token).safeTransferFrom(msg.sender, vault, amount);
 
-        // Deposit tokens to vault through middleware
-        networkMiddleware.depositToVault(vault, amount, onBehalfOf);
+        // Deposit tokens directly to vault
+        IVault(vault).deposit(amount, onBehalfOf);
     }
 
     /**
@@ -106,7 +107,7 @@ contract Controller {
     }
 
     /**
-     * @notice Initiates a withdrawal request from a vault through the network middleware
+     * @notice Initiates a withdrawal request from a vault directly
      * @param vault The address of the vault to withdraw from
      * @param token The address of the token being withdrawn
      * @param amount The amount of tokens to withdraw
@@ -122,8 +123,8 @@ contract Controller {
         address coverToken = coverTokens[token];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
-        // Initiate withdrawal from vault through middleware
-        networkMiddleware.withdrawFromVault(vault, amount, onBehalfOf);
+        // Initiate withdrawal directly from vault
+        IVault(vault).withdraw(amount, onBehalfOf);
     }
 
     /**
@@ -149,8 +150,8 @@ contract Controller {
         // Burn cover tokens from the recipient
         ICoverToken(coverToken).burn(recipient, coverTokenAmount);
 
-        // Claim tokens from vault through middleware
-        networkMiddleware.claimFromVault(vault, recipient, epoch);
+        // Claim tokens directly from vault
+        IVault(vault).claim(recipient, epoch);
     }
 
 }

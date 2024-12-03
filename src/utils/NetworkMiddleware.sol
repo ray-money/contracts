@@ -207,51 +207,6 @@ contract NetworkMiddleware is Ownable {
     }
 
     /**
-    * @notice Deposits tokens into an authorized vault
-    * @param vault The authorized vault address
-    * @param amount The amount to deposit
-    * @param onBehalfOf The address to credit the deposit to
-    */
-    function depositToVault(
-        address vault,
-        uint256 amount,
-        address onBehalfOf
-    ) external onlyOwner onlyAuthorized(vault) {
-        // Approve vault to spend tokens
-        IERC20(token).approve(vault, amount);
-        // Deposit into vault
-        IVault(vault).deposit(onBehalfOf, amount);
-    }
-
-    /**
-    * @notice Initiates a withdrawal from an authorized vault
-    * @param vault The authorized vault address
-    * @param amount The amount to withdraw
-    * @param claimer The address that can claim the withdrawal
-    */
-    function withdrawFromVault(
-        address vault,
-        uint256 amount,
-        address claimer
-    ) external onlyOwner onlyAuthorized(vault) {
-        IVault(vault).withdraw(claimer, amount);
-    }
-
-    /**
-    * @notice Claims withdrawable tokens from an authorized vault
-    * @param vault The authorized vault address
-    * @param recipient The address to receive the withdrawn tokens
-    * @param epoch The epoch to claim from
-    */
-    function claimFromVault(
-        address vault,
-        address recipient,
-        uint256 epoch
-    ) external onlyOwner onlyAuthorized(vault) {
-        IVault(vault).claim(recipient, epoch);
-    }
-
-    /**
     * @notice Gets the active balance of an account in a vault
     * @param vault The vault address
     * @param account The account to check
