@@ -137,19 +137,17 @@ contract NetworkMiddleware is Ownable {
     ) {
         // Encode vault initialization parameters
         bytes memory vaultParams = abi.encode(
-            IVaultConfigurator(vault).InitParams({
-                collateral: collateral,
-                burner: burner,
-                epochDuration: epochDuration,
-                depositWhitelist: false,
-                isDepositLimit: false,
-                depositLimit: 0,
-                defaultAdminRoleHolder: defaultAdmin,
-                depositWhitelistSetRoleHolder: defaultAdmin,
-                depositorWhitelistRoleHolder: defaultAdmin,
-                isDepositLimitSetRoleHolder: defaultAdmin,
-                depositLimitSetRoleHolder: defaultAdmin
-            })
+            collateral,
+            burner, 
+            epochDuration,
+            false, // depositWhitelist
+            false, // isDepositLimit
+            0, // depositLimit
+            defaultAdmin, // defaultAdminRoleHolder
+            defaultAdmin, // depositWhitelistSetRoleHolder
+            defaultAdmin, // depositorWhitelistRoleHolder
+            defaultAdmin, // isDepositLimitSetRoleHolder
+            defaultAdmin // depositLimitSetRoleHolder
         );
 
         // Create vault using VaultConfigurator

@@ -105,7 +105,7 @@ contract Controller {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         // Mint cover tokens directly to the buyer
-        ICoverToken(coverToken).mint(msg.sender, amount);
+        ICoverToken(coverToken).mint(msg.sender, token, amount);
     }
 
     /**
@@ -126,7 +126,7 @@ contract Controller {
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Initiate withdrawal directly from vault
-        IVault(vault).withdraw(amount, onBehalfOf);
+        IVault(vault).withdraw(onBehalfOf, amount);
     }
 
     /**

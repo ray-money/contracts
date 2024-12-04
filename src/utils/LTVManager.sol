@@ -11,9 +11,10 @@ contract LTVManager {
 
     //@dev Calculate the LTV of a token in the Vault
     //@param token - the token address
-    function calculateLTV(address token) public view returns (uint256) {
+    //@param vault - the vault address
+    function calculateLTV(address token, address vault) public view returns (uint256) {
         // Get the vault balance directly
-        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(token);
+        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, token);
         /** 
          * @dev 90% of the token balance is used to calculate the amount
          * of cover tokens that can be minted, this could be adjusted
