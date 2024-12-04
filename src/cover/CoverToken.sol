@@ -55,13 +55,8 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
      */
     function mint(address to, address token, uint256 amount) external onlyOwner {
         uint256 maxAmount;
-        if (token == address(0)) {
-            // Get max allowed amount for ETH deposits
-            maxAmount = ILTVManager(ltvManager).calculateETHLTV();
-        } else {
-            // Get max allowed amount for LRT token deposits
-            maxAmount = ILTVManager(ltvManager).calculateLRTLTV(token);
-        }
+        // Get max allowed amount for LRT token deposits
+        maxAmount = ILTVManager(ltvManager).calculateLTV(token);
         if (amount > maxAmount) revert AmountExceedsLTVLimit(amount, maxAmount);
         _mint(to, amount);
     }

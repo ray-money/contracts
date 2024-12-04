@@ -5,6 +5,7 @@ import {INetworkRegistry} from "lib/core/src/interfaces/INetworkRegistry.sol";
 import {INetworkMiddlewareService} from "lib/core/src/interfaces/service/INetworkMiddlewareService.sol";
 import {IVaultConfigurator} from "lib/core/src/interfaces/IVaultConfigurator.sol";
 import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperatorRewards/IDefaultOperatorRewards.sol";
+import {IDefaultStakerRewards} from "lib/rewards/src/interfaces/defaultStakerRewards/IDefaultStakerRewards.sol";
 
 interface INetworkMiddleware {
     error UnauthorizedVault(address vault);

@@ -11,35 +11,27 @@ import "./CoverToken.sol";
 contract CoverTokenFactory {
     /// @notice The address of the implementation contract that will be cloned
     address immutable implementation;
+    /// @notice The LTVManager contract address
+    address immutable ltvManager;
     
     /**
-     * @dev Constructor sets the implementation contract address
+     * @dev Constructor sets the implementation contract address and LTVManager
      * @param _implementation Address of the CoverToken implementation contract
+     * @param _ltvManager The LTVManager contract address
      */
-    constructor(address _implementation) {
+    constructor(address _implementation, address _ltvManager) {
         implementation = _implementation;
+        ltvManager = _ltvManager;
     }
     
     /**
-     * @dev Creates a new CoverToken clone and initializes it
-     * @param owner The owner address for the new CoverToken
-     * @param ltvManager The LTVManager contract address
-     * @param baseAsset The base asset of the cover token, 0x if ETH or LRT address otherwise
-     * @param name The name for the new CoverToken
-     * @param symbol The symbol for the new CoverToken
+     * @dev Creates a new CoverToken clone
+     * @param baseAsset The base asset of the cover token
      * @return Address of the newly created CoverToken clone
      */
-    function createCoverToken(
-        address owner,
-        address ltvManager,
-        address baseAsset,
-        string memory name,
-        string memory symbol
-    ) external returns (address) {
+    function createCoverToken(address baseAsset) external returns (address) {
         // Create minimal proxy clone of the implementation
         address clone = Clones.clone(implementation);
-        // Initialize the cloned contract
-        CoverToken(clone).initialize(owner, ltvManager, baseAsset, name, symbol);
         return clone;
     }
 }

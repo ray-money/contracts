@@ -86,6 +86,7 @@ contract NetworkMiddleware is Ownable {
     event NetworkDeployed(address network);
     event VaultAuthorized(address vault);
     event VaultDeauthorized(address vault);
+    event BurnerUpdated(address burner);
 
     /// @notice Set of authorized vaults
     EnumerableSet.AddressSet private vaults;
@@ -97,7 +98,7 @@ contract NetworkMiddleware is Ownable {
     /// @param _operatorRewards Address of the operator rewards contract
     constructor(
         IDefaultOperatorRewards _operatorRewards,
-        VaultConfigurator _vaultConfigurator,
+        IVaultConfigurator _vaultConfigurator,
         address _burner
     ) Ownable(msg.sender) {
         if (_burner == address(0)) revert InvalidBurnerAddress(_burner);
@@ -136,7 +137,7 @@ contract NetworkMiddleware is Ownable {
     ) {
         // Encode vault initialization parameters
         bytes memory vaultParams = abi.encode(
-            Vault.InitParams({
+            IVaultConfigurator(vault).InitParams({
                 collateral: collateral,
                 burner: burner,
                 epochDuration: epochDuration,
