@@ -207,6 +207,8 @@ contract NetworkMiddleware is Ownable {
     function deployNetwork() external returns (address network) {
         network = address(new Network(networkRegistry, middlewareService));
         emit NetworkDeployed(network);
+
+        return network;
     }
 
     /**
