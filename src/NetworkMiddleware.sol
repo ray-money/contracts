@@ -170,6 +170,8 @@ contract NetworkMiddleware is Ownable {
         }
 
         emit VaultAuthorized(vault);
+
+        return (vault, delegator, slasher);
     }
 
     /**

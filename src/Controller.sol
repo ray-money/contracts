@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 import {ICoverTokenFactory} from "./interfaces/ICoverTokenFactory.sol";
-import {ILTVManager} from "./interfaces/ILTVManager.sol";
 import {ICoverToken} from "./interfaces/ICoverToken.sol";
 import {INetworkMiddleware} from "./interfaces/INetworkMiddleware.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -20,9 +19,6 @@ contract Controller {
     /// @notice The network middleware contract instance
     INetworkMiddleware public immutable networkMiddleware;
 
-    /// @notice The LTV manager contract instance
-    ILTVManager public immutable ltvManager;
-
     /// @notice Mapping from base asset (ETH/LRT) to its cover token instance
     mapping(address => address) public coverTokens;
 
@@ -31,7 +27,7 @@ contract Controller {
 
     error NotOracle();
     error NoCoverTokenForAsset();
-    error AmountExceedsLTV(uint256 amount, uint256 maxAmount);
+    error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
 
     modifier onlyOracle() {
         if (msg.sender != oracle) revert NotOracle();
@@ -81,7 +77,7 @@ contract Controller {
      * @param amount The amount of cover tokens to buy
      * @dev User must approve this contract to spend their tokens
      */
-    function buyCover(address token, uint256 amount) external {
+    function buyCover(address token, address vault, uint256 amount) external {
         // Get or create cover token for this asset
         address coverToken = coverTokens[token];
         if (coverToken == address(0)) {
@@ -90,16 +86,15 @@ contract Controller {
             // Initialize the cover token with this contract as owner
             ICoverToken(coverToken).initialize(
                 address(this),
-                address(ltvManager),
                 token, // eETH
                 string(abi.encodePacked("Ray ", IERC20Metadata(token).name())), // Ray eETH
                 string(abi.encodePacked("r", IERC20Metadata(token).symbol())) // reETH
             );
         }
 
-        // Calculate amount of cover tokens that can be minted based on LTV
-        uint256 maxCoverTokenAmount = ltvManager.calculateLTV(token);
-        if (amount > maxCoverTokenAmount) revert AmountExceedsLTV(amount, maxCoverTokenAmount);
+        // Calculate amount of cover tokens that can be minted based on Capacity
+        uint256 maxCoverTokenAmount = _calculateCapacity(token, vault);
+        if (amount > maxCoverTokenAmount) revert AmountExceedsCapacity(amount, maxCoverTokenAmount);
 
         // Transfer tokens from user to this contract
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -146,8 +141,8 @@ contract Controller {
         address coverToken = coverTokens[token];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
-        // Calculate amount of cover tokens to burn based on LTV
-        uint256 coverTokenAmount = ltvManager.calculateLTV(token);
+        // Calculate amount of cover tokens to burn based on Capacity
+        uint256 coverTokenAmount = _calculateCapacity(vault, token);
 
         // Burn cover tokens from the recipient
         ICoverToken(coverToken).burn(recipient, coverTokenAmount);
@@ -171,6 +166,4 @@ contract Controller {
         uint256 capacity = (tokenBalance * 90) / 100;
         return capacity;
     }
-}
-
 }
