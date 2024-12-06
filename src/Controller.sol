@@ -156,4 +156,21 @@ contract Controller {
         IVault(vault).claim(recipient, epoch);
     }
 
+
+    //@dev Internal function to calculate the capacity of the Vault
+    //@param token - the token address
+    //@param vault - the vault address
+    function _calculateCapacity(address token, address vault) internal view returns (uint256) {
+        // Get the vault balance directly
+        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, token);
+        /** 
+         * @dev 90% of the token balance is used to calculate the amount
+         * of cover tokens that can be minted, this could be adjusted
+         * based on the python simulations
+         */
+        uint256 ltv = (tokenBalance * 90) / 100;
+        return ltv;
+    }
+}
+
 }
