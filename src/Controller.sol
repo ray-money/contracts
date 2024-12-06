@@ -74,6 +74,7 @@ contract Controller {
      * @notice Allows users to buy cover tokens directly from the contract
      * @notice Price discovery is yet to be implemented!
      * @param token The address of the underlying token for which cover is needed
+     * @param vault The address of the vault to buy cover from
      * @param amount The amount of cover tokens to buy
      * @dev User must approve this contract to spend their tokens
      */
