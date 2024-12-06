@@ -168,8 +168,8 @@ contract Controller {
          * of cover tokens that can be minted, this could be adjusted
          * based on the python simulations
          */
-        uint256 ltv = (tokenBalance * 90) / 100;
-        return ltv;
+        uint256 capacity = (tokenBalance * 90) / 100;
+        return capacity;
     }
 }
 
