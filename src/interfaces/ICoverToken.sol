@@ -9,7 +9,7 @@ interface ICoverToken {
         string memory _symbol
     ) external;
 
-    function mint(address to, address token, uint256 amount) external;
+    function mint(address to, uint256 amount) external;
     
     function burn(address from, uint256 amount) external;
 

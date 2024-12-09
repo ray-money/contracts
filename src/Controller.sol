@@ -8,10 +8,12 @@ import {INetworkMiddleware} from "./interfaces/INetworkMiddleware.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "./interfaces/IERC20Metadata.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract Controller {
 
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @notice The cover token factory contract instance
     ICoverTokenFactory public immutable coverTokenFactory;
@@ -19,131 +21,132 @@ contract Controller {
     /// @notice The network middleware contract instance
     INetworkMiddleware public immutable networkMiddleware;
 
-    /// @notice Mapping from base asset (ETH/LRT) to its cover token instance
-    mapping(address => address) public coverTokens;
+    /// @notice Mapping from base asset to its vault address
+    address public vault;
 
-    /// @notice The oracle contract instance
-    address public immutable oracle;
+    /// @notice Set of supported base assets for coverage
+    EnumerableSet.AddressSet private supportedAssets;
 
-    error NotOracle();
+    /// @notice Mapping from ID to cover token address
+    mapping(uint256 => address) public idToCoverToken;
+
+    /// @notice The keeper contract instance
+    address public immutable keeper;
+
+    error NotKeeper();
     error NoCoverTokenForAsset();
     error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
 
-    modifier onlyOracle() {
-        if (msg.sender != oracle) revert NotOracle();
+    modifier onlyKeeper() {
+        if (msg.sender != keeper) revert NotKeeper();
         _;
     }
 
     constructor(
         address _networkMiddleware,
         address _coverTokenFactory,
-        address _oracle
+        address _keeper,
+        address _baseAsset,
+        uint48 _epochDuration,
+        address _defaultAdmin,
+        address[] memory _supportedAssets
     ) {
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
-        oracle = _oracle;
-    }
+        keeper = _keeper;
 
-    /**
-     * @notice Deposits tokens directly into a vault
-     * @param vault The address of the vault to deposit to
-     * @param token The address of the token being deposited
-     * @param amount The amount of tokens to deposit
-     * @param onBehalfOf The address to credit the deposit to
-     */
-    function deposit(
-        address vault,
-        address token,
-        uint256 amount,
-        address onBehalfOf
-    ) external {
-        // Create vault if it doesn't exist, otherwise deposit directly
-        if (!networkMiddleware.isAuthorizedVault(vault)) {
-            (vault,,) = networkMiddleware.createAndAuthorizeVault(
-                token,
-                7 days, // Default epoch duration
-                address(this) // This contract as admin
-            );
+        // Create vault through middleware
+        (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
+            _baseAsset,
+            _epochDuration,
+            _defaultAdmin
+        );
+
+        // Store vault
+        vault = _vault;
+
+        // Store supported assets
+        for (uint256 i = 0; i < _supportedAssets.length; i++) {
+            supportedAssets.add(_supportedAssets[i]);
         }
 
-        // Deposit tokens directly to vault
-        IVault(vault).deposit(onBehalfOf, amount);
+        // Create cover tokens for each supported asset and store them in idToCoverToken
+        for (uint256 i = 0; i < _supportedAssets.length; i++) {
+            address asset = _supportedAssets[i];
+            address coverToken = coverTokenFactory.createCoverToken(asset);
+            // Initialize the cover token with this contract as owner
+            ICoverToken(coverToken).initialize(
+                address(this),
+                asset,
+                string(abi.encodePacked("Ray ", IERC20Metadata(asset).name())),
+                string(abi.encodePacked("r", IERC20Metadata(asset).symbol()))
+            );
+            // Store the mapping of ID to cover token address
+            idToCoverToken[i] = coverToken;
+        }
     }
 
     /**
      * @notice Allows users to buy cover tokens directly from the contract
      * @notice Price discovery is yet to be implemented!
-     * @param token The address of the underlying token for which cover is needed
-     * @param vault The address of the vault to buy cover from
+     * @param baseAssetID The ID of the underlying token for which cover is needed
      * @param amount The amount of cover tokens to buy
      * @dev User must approve this contract to spend their tokens
      */
-    function buyCover(address token, address vault, uint256 amount) external {
-        // Get or create cover token for this asset
-        address coverToken = coverTokens[token];
-        if (coverToken == address(0)) {
-            coverToken = coverTokenFactory.createCoverToken(token);
-            coverTokens[token] = coverToken;
-            // Initialize the cover token with this contract as owner
-            ICoverToken(coverToken).initialize(
-                address(this),
-                token, // eETH
-                string(abi.encodePacked("Ray ", IERC20Metadata(token).name())), // Ray eETH
-                string(abi.encodePacked("r", IERC20Metadata(token).symbol())) // reETH
-            );
-        }
+    function buyCover(uint256 baseAssetID, uint256 amount) external {
+        address coverToken = idToCoverToken[baseAssetID];
+        if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Calculate amount of cover tokens that can be minted based on Capacity
-        uint256 maxCoverTokenAmount = _calculateCapacity(token, vault);
+        uint256 maxCoverTokenAmount = _calculateCapacity();
         if (amount > maxCoverTokenAmount) revert AmountExceedsCapacity(amount, maxCoverTokenAmount);
 
+        // Get the base asset from the cover token
+        address baseAsset = ICoverToken(coverToken).baseAsset();
+
         // Transfer tokens from user to this contract
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(baseAsset).safeTransferFrom(msg.sender, address(this), amount);
 
         // Mint cover tokens directly to the buyer
-        ICoverToken(coverToken).mint(msg.sender, token, amount);
+        ICoverToken(coverToken).mint(msg.sender, amount);
     }
 
     /**
      * @notice Initiates a withdrawal request from a vault directly
-     * @param vault The address of the vault to withdraw from
-     * @param token The address of the token being withdrawn
+     * @param id The ID of the token being withdrawn
      * @param amount The amount of tokens to withdraw
      * @param onBehalfOf The address to debit the withdrawal from
      */
     function initiateWithdraw(
-        address vault,
-        address token,
+        uint256 id,
         uint256 amount,
         address onBehalfOf
     ) external {
         // Get cover token for this asset
-        address coverToken = coverTokens[token];
+        address coverToken = idToCoverToken[id];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Initiate withdrawal directly from vault
         IVault(vault).withdraw(onBehalfOf, amount);
     }
-
+    
     /**
      * @notice Claims withdrawn tokens from a vault and burns the associated cover tokens
-     * @param vault The address of the vault to claim from
-     * @param token The address of the token being claimed
+     * @param id The ID of the token being claimed
      * @param recipient The address to receive the withdrawn tokens
      * @param epoch The epoch to claim from
      */
     function claimWithdrawal(
-        address vault,
-        address token,
+        uint256 id,
         address recipient,
         uint256 epoch
     ) external {
         // Get cover token for this asset
-        address coverToken = coverTokens[token];
+        address coverToken = idToCoverToken[id];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Calculate amount of cover tokens to burn based on Capacity
-        uint256 coverTokenAmount = _calculateCapacity(vault, token);
+        uint256 coverTokenAmount = _calculateCapacity();
 
         // Burn cover tokens from the recipient
         ICoverToken(coverToken).burn(recipient, coverTokenAmount);
@@ -152,19 +155,27 @@ contract Controller {
         IVault(vault).claim(recipient, epoch);
     }
 
-
+    //@notice: placeholder function, the logic will be updated in the future
     //@dev Internal function to calculate the capacity of the Vault
-    //@param token - the token address
-    //@param vault - the vault address
-    function _calculateCapacity(address token, address vault) internal view returns (uint256) {
-        // Get the vault balance directly
-        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, token);
-        /** 
-         * @dev 90% of the token balance is used to calculate the amount
-         * of cover tokens that can be minted, this could be adjusted
-         * based on the python simulations
-         */
-        uint256 capacity = (tokenBalance * 90) / 100;
+    function _calculateCapacity() internal view returns (uint256) {
+        // Get the vault balance
+        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
+        
+        // Get number of supported assets
+        uint256 numSupportedAssets = supportedAssets.length();
+
+        // Calculate total supply of all cover tokens
+        uint256 totalCoverTokenSupply;
+        for (uint256 i = 0; i < numSupportedAssets; i++) {
+            address asset = supportedAssets.at(i);
+            address coverToken = idToCoverToken[i];
+            if (coverToken != address(0)) {
+                totalCoverTokenSupply += IERC20(coverToken).totalSupply();
+            }
+        }
+        // Calculate capacity by multiplying balance by number of supported assets
+        uint256 capacity = (tokenBalance * numSupportedAssets) - totalCoverTokenSupply;
+        
         return capacity;
     }
 }

@@ -42,10 +42,9 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     /**
      * @dev Mints tokens to an address. Can only be called by owner.
      * @param to The address that will receive the minted tokens
-     * @param token The address of the LRT token
      * @param amount The amount of tokens to mint
      */
-    function mint(address to, address token, uint256 amount) external onlyOwner {
+    function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }
 
