@@ -46,8 +46,6 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
      * @param amount The amount of tokens to mint
      */
     function mint(address to, address token, uint256 amount) external onlyOwner {
-        uint256 maxAmount;
-        // Get max allowed amount for LRT token deposits
         _mint(to, amount);
     }
 
