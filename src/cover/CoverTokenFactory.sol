@@ -17,11 +17,9 @@ contract CoverTokenFactory {
     /**
      * @dev Constructor sets the implementation contract address and LTVManager
      * @param _implementation Address of the CoverToken implementation contract
-     * @param _ltvManager The LTVManager contract address
      */
-    constructor(address _implementation, address _ltvManager) {
+    constructor(address _implementation) {
         implementation = _implementation;
-        ltvManager = _ltvManager;
     }
     
     /**
