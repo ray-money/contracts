@@ -6,7 +6,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgrad
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
-    address public baseAsset;
+    address public collateralAsset;
     bool private initialized;
 
     error AlreadyInitialized();
@@ -35,7 +35,7 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         
         __ERC20_init(_name, _symbol);
         _transferOwnership(_owner);
-        baseAsset = _baseAsset;
+        collateralAsset = _baseAsset;
         initialized = true;
     }
 

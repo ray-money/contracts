@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 interface ICoverToken {
     function initialize(
         address _owner,
-        address _baseAsset,
+        address _collateralAsset,
         string memory _name,
         string memory _symbol
     ) external;
@@ -13,5 +13,5 @@ interface ICoverToken {
     
     function burn(address from, uint256 amount) external;
 
-    function baseAsset() external view returns (address);
+    function collateralAsset() external view returns (address);
 }
