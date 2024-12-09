@@ -105,50 +105,6 @@ contract Controller {
         ICoverToken(coverToken).mint(msg.sender, amount);
     }
 
-    /**
-     * @notice Initiates a withdrawal request from a vault directly
-     * @param id The ID of the token being withdrawn
-     * @param amount The amount of tokens to withdraw
-     * @param onBehalfOf The address to debit the withdrawal from
-     */
-    function initiateWithdraw(
-        uint256 id,
-        uint256 amount,
-        address onBehalfOf
-    ) external {
-        // Get cover token for this asset
-        address coverToken = idToCoverToken[id];
-        if (coverToken == address(0)) revert NoCoverTokenForAsset();
-
-        // Initiate withdrawal directly from vault
-        IVault(vault).withdraw(onBehalfOf, amount);
-    }
-    
-    /**
-     * @notice Claims withdrawn tokens from a vault and burns the associated cover tokens
-     * @param id The ID of the token being claimed
-     * @param recipient The address to receive the withdrawn tokens
-     * @param epoch The epoch to claim from
-     */
-    function claimWithdrawal(
-        uint256 id,
-        address recipient,
-        uint256 epoch
-    ) external {
-        // Get cover token for this asset
-        address coverToken = idToCoverToken[id];
-        if (coverToken == address(0)) revert NoCoverTokenForAsset();
-
-        // Calculate amount of cover tokens to burn based on Capacity
-        uint256 coverTokenAmount = _calculateCapacity();
-
-        // Burn cover tokens from the recipient
-        ICoverToken(coverToken).burn(recipient, coverTokenAmount);
-
-        // Claim tokens directly from vault
-        IVault(vault).claim(recipient, epoch);
-    }
-
     //@notice: placeholder function, the logic will be updated in the future
     //@dev Internal function to calculate the capacity of the Vault
     function _calculateCapacity() internal view returns (uint256) {
