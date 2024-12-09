@@ -11,11 +11,9 @@ import "./CoverToken.sol";
 contract CoverTokenFactory {
     /// @notice The address of the implementation contract that will be cloned
     address immutable implementation;
-    /// @notice The LTVManager contract address
-    address immutable ltvManager;
     
     /**
-     * @dev Constructor sets the implementation contract address and LTVManager
+     * @dev Constructor sets the implementation contract address
      * @param _implementation Address of the CoverToken implementation contract
      */
     constructor(address _implementation) {
