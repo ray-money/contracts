@@ -6,8 +6,13 @@ import {ICoverTokenFactory} from "./interfaces/ICoverTokenFactory.sol";
 import {ILTVManager} from "./interfaces/ILTVManager.sol";
 import {ICoverToken} from "./interfaces/ICoverToken.sol";
 import {INetworkMiddleware} from "./interfaces/INetworkMiddleware.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "./interfaces/IERC20Metadata.sol";
+import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Controller {
+
+    using SafeERC20 for IERC20;
 
     /// @notice The cover token factory contract instance
     ICoverTokenFactory public immutable coverTokenFactory;
@@ -65,11 +70,8 @@ contract Controller {
             );
         }
 
-        // Transfer tokens from user to vault
-        IERC20(token).safeTransferFrom(msg.sender, vault, amount);
-
         // Deposit tokens directly to vault
-        IVault(vault).deposit(amount, onBehalfOf);
+        IVault(vault).deposit(onBehalfOf, amount);
     }
 
     /**
@@ -89,9 +91,9 @@ contract Controller {
             ICoverToken(coverToken).initialize(
                 address(this),
                 address(ltvManager),
-                token,
-                string(abi.encodePacked("Ray ", IERC20(token).name())),
-                string(abi.encodePacked("r", IERC20(token).symbol()))
+                token, // eETH
+                string(abi.encodePacked("Ray ", IERC20Metadata(token).name())), // Ray eETH
+                string(abi.encodePacked("r", IERC20Metadata(token).symbol())) // reETH
             );
         }
 
@@ -103,7 +105,7 @@ contract Controller {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         // Mint cover tokens directly to the buyer
-        ICoverToken(coverToken).mint(msg.sender, amount);
+        ICoverToken(coverToken).mint(msg.sender, token, amount);
     }
 
     /**
@@ -124,7 +126,7 @@ contract Controller {
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Initiate withdrawal directly from vault
-        IVault(vault).withdraw(amount, onBehalfOf);
+        IVault(vault).withdraw(onBehalfOf, amount);
     }
 
     /**
