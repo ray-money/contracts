@@ -21,10 +21,10 @@ contract Controller {
     /// @notice The network middleware contract instance
     INetworkMiddleware public immutable networkMiddleware;
 
-    /// @notice Mapping from base asset to its vault address
+    /// @notice The vault address
     address public vault;
 
-    /// @notice Set of supported base assets for coverage
+    /// @notice Set of supported assets for coverage
     EnumerableSet.AddressSet private supportedAssets;
 
     /// @notice Mapping from ID to cover token address
