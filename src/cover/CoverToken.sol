@@ -18,13 +18,13 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     /** 
      * @dev Initialization function for the cloned contract
      * @param _owner - the owner of the contract, could be Controller.sol
-     * @param _baseAsset - the base asset of the cover token, 0x if ETH or LRT address otherwise
+     * @param _collateralAsset - the collateral asset of the cover token
      * @param _name - the name of the cover token
      * @param _symbol - the symbol of the cover token
      */
     function initialize(
         address _owner,
-        address _baseAsset,
+        address _collateralAsset,
         string memory _name,
         string memory _symbol
     ) external {
@@ -35,7 +35,7 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         
         __ERC20_init(_name, _symbol);
         _transferOwnership(_owner);
-        collateralAsset = _baseAsset;
+        collateralAsset = _collateralAsset;
         initialized = true;
     }
 
