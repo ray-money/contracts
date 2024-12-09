@@ -89,12 +89,12 @@ contract Controller {
     /**
      * @notice Allows users to buy cover tokens directly from the contract
      * @notice Price discovery is yet to be implemented!
-     * @param baseAssetID The ID of the underlying token for which cover is needed
+     * @param coverTokenID The ID of the underlying token for which cover is needed
      * @param amount The amount of cover tokens to buy
      * @dev User must approve this contract to spend their tokens
      */
-    function buyCover(uint256 baseAssetID, uint256 amount) external {
-        address coverToken = idToCoverToken[baseAssetID];
+    function buyCover(uint256 coverTokenID, uint256 amount) external {
+        address coverToken = idToCoverToken[coverTokenID];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Calculate amount of cover tokens that can be minted based on Capacity
