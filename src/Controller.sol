@@ -101,12 +101,6 @@ contract Controller {
         uint256 maxCoverTokenAmount = _calculateCapacity();
         if (amount > maxCoverTokenAmount) revert AmountExceedsCapacity(amount, maxCoverTokenAmount);
 
-        // Get the base asset from the cover token
-        address baseAsset = ICoverToken(coverToken).baseAsset();
-
-        // Transfer tokens from user to this contract
-        IERC20(baseAsset).safeTransferFrom(msg.sender, address(this), amount);
-
         // Mint cover tokens directly to the buyer
         ICoverToken(coverToken).mint(msg.sender, amount);
     }
