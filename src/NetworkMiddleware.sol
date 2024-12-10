@@ -96,6 +96,8 @@ contract NetworkMiddleware is Ownable {
 
     /// @notice Initializes the middleware contract
     /// @param _operatorRewards Address of the operator rewards contract
+    /// @param _vaultConfigurator Address of the vault configurator contract
+    /// @param _burner Address of the burner contract
     constructor(
         IDefaultOperatorRewards _operatorRewards,
         IVaultConfigurator _vaultConfigurator,
@@ -170,6 +172,8 @@ contract NetworkMiddleware is Ownable {
         }
 
         emit VaultAuthorized(vault);
+
+        return (vault, delegator, slasher);
     }
 
     /**
@@ -205,6 +209,8 @@ contract NetworkMiddleware is Ownable {
     function deployNetwork() external returns (address network) {
         network = address(new Network(networkRegistry, middlewareService));
         emit NetworkDeployed(network);
+
+        return network;
     }
 
     /**
