@@ -33,7 +33,10 @@ contract Controller {
     /// @notice The keeper contract instance
     address public immutable keeper;
 
+    bool public initialized;
+
     error NotKeeper();
+    error AlreadyInitialized();
     error NoCoverTokenForAsset();
     error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
 
@@ -43,17 +46,23 @@ contract Controller {
     }
 
     constructor(
-        address _networkMiddleware,
         address _coverTokenFactory,
-        address _keeper,
-        address _baseAsset,
-        uint48 _epochDuration,
-        address _defaultAdmin,
-        address[] memory _supportedAssets
+        address _networkMiddleware,
+        address _keeper
     ) {
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
         keeper = _keeper;
+
+    }
+
+    function initialize(
+        address _baseAsset,
+        uint48 _epochDuration,
+        address _defaultAdmin,
+        address[] memory _supportedAssets
+    ) external {
+        if (initialized) revert AlreadyInitialized();
 
         // Create vault through middleware
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
@@ -84,6 +93,8 @@ contract Controller {
             // Store the mapping of asset to cover token address
             coveredAssetToCoverToken[asset] = coverToken;
         }
+
+        initialized = true;
     }
 
     /**
