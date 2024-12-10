@@ -24,11 +24,11 @@ contract Controller {
     /// @notice The vault address
     address public vault;
 
-    /// @notice Set of covered assets
-    EnumerableSet.AddressSet private coveredAssets;
+    /// @notice Set of supported assets for coverage
+    EnumerableSet.AddressSet private supportedAssets;
 
-    /// @notice Mapping from ID to cover token address
-    mapping(uint256 => address) public idToCoverToken;
+    /// @notice Mapping from covered asset to cover token address
+    mapping(address => address) public coveredAssetToCoverToken;
 
     /// @notice The keeper contract instance
     address public immutable keeper;
@@ -46,10 +46,10 @@ contract Controller {
         address _networkMiddleware,
         address _coverTokenFactory,
         address _keeper,
-        address _collateralAsset,
+        address _baseAsset,
         uint48 _epochDuration,
         address _defaultAdmin,
-        address[] memory _coveredAssets
+        address[] memory _supportedAssets
     ) {
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
@@ -57,7 +57,7 @@ contract Controller {
 
         // Create vault through middleware
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
-            _collateralAsset,
+            _baseAsset,
             _epochDuration,
             _defaultAdmin
         );
@@ -65,14 +65,14 @@ contract Controller {
         // Store vault
         vault = _vault;
 
-        // Store covered assets
-        for (uint256 i = 0; i < _coveredAssets.length; i++) {
-            coveredAssets.add(_coveredAssets[i]);
+        // Store supported assets
+        for (uint256 i = 0; i < _supportedAssets.length; i++) {
+            supportedAssets.add(_supportedAssets[i]);
         }
 
-        // Create cover tokens for each covered asset and store them in idToCoverToken
-        for (uint256 i = 0; i < _coveredAssets.length; i++) {
-            address asset = _coveredAssets[i];
+        // Create cover tokens for each supported asset and store them in idToCoverToken
+        for (uint256 i = 0; i < _supportedAssets.length; i++) {
+            address asset = _supportedAssets[i];
             address coverToken = coverTokenFactory.createCoverToken(asset);
             // Initialize the cover token with this contract as owner
             ICoverToken(coverToken).initialize(
@@ -81,20 +81,20 @@ contract Controller {
                 string(abi.encodePacked("Ray ", IERC20Metadata(asset).name())),
                 string(abi.encodePacked("r", IERC20Metadata(asset).symbol()))
             );
-            // Store the mapping of ID to cover token address
-            idToCoverToken[i] = coverToken;
+            // Store the mapping of asset to cover token address
+            coveredAssetToCoverToken[asset] = coverToken;
         }
     }
 
     /**
      * @notice Allows users to buy cover tokens directly from the contract
      * @notice Price discovery is yet to be implemented!
-     * @param coverTokenID The ID of the underlying token for which cover is needed
+     * @param coveredAsset The address of the underlying token for which cover is needed
      * @param amount The amount of cover tokens to buy
      * @dev User must approve this contract to spend their tokens
      */
-    function buyCover(uint256 coverTokenID, uint256 amount) external {
-        address coverToken = idToCoverToken[coverTokenID];
+    function buyCover(address coveredAsset, uint256 amount) external {
+        address coverToken = coveredAssetToCoverToken[coveredAsset];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         // Calculate amount of cover tokens that can be minted based on Capacity
@@ -105,26 +105,27 @@ contract Controller {
         ICoverToken(coverToken).mint(msg.sender, amount);
     }
 
+
     //@notice: placeholder function, the logic will be updated in the future
     //@dev Internal function to calculate the capacity of the Vault
     function _calculateCapacity() internal view returns (uint256) {
         // Get the vault balance
         uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
         
-        // Get number of covered assets
-        uint256 numCoveredAssets = coveredAssets.length();
+        // Get number of supported assets
+        uint256 numSupportedAssets = supportedAssets.length();
 
         // Calculate total supply of all cover tokens
         uint256 totalCoverTokenSupply;
-        for (uint256 i = 0; i < numCoveredAssets; i++) {
-            address asset = coveredAssets.at(i);
-            address coverToken = idToCoverToken[i];
+        for (uint256 i = 0; i < numSupportedAssets; i++) {
+            address asset = supportedAssets.at(i);
+            address coverToken = coveredAssetToCoverToken[asset];
             if (coverToken != address(0)) {
                 totalCoverTokenSupply += IERC20(coverToken).totalSupply();
             }
         }
-        // Calculate capacity by multiplying balance by number of covered assets
-        uint256 capacity = (tokenBalance * numCoveredAssets) - totalCoverTokenSupply;
+        // Calculate capacity by multiplying balance by number of supported assets
+        uint256 capacity = (tokenBalance * numSupportedAssets) - totalCoverTokenSupply;
         
         return capacity;
     }
