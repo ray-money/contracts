@@ -79,7 +79,7 @@ contract Controller {
             supportedAssets.add(_supportedAssets[i]);
         }
 
-        // Create cover tokens for each supported asset and store them in idToCoverToken
+        // Create cover tokens for each supported asset and store them in coveredAssetToCoverToken
         for (uint256 i = 0; i < _supportedAssets.length; i++) {
             address asset = _supportedAssets[i];
             address coverToken = coverTokenFactory.createCoverToken(asset);
