@@ -62,7 +62,7 @@ contract ControllerTest is Test {
             keeper
         );
 
-        // // Transfer middleware ownership to controller
+        // Transfer middleware ownership to controller
         middleware.transferOwnership(address(controller));
     
         controller.initialize(
@@ -71,8 +71,6 @@ contract ControllerTest is Test {
             address(this),
             supportedAssets
         );
-        // console.log("Current test contract address:", address(this));
-        // console.log("Middleware owner:", middleware.owner());
     }
 
     function test_deployment() public {
