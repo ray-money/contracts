@@ -105,6 +105,25 @@ contract Controller {
         ICoverToken(coverToken).mint(msg.sender, amount);
     }
 
+    /**
+     * @notice Allows the keeper to slash validators through the network middleware
+     * @param validator The address of the validator to slash
+     * @param amount The amount to slash
+     * @param timestamp The timestamp of the slashing event
+     * @dev Only callable by keeper
+     */
+    function executeSlash(
+        address validator,
+        uint256 amount,
+        uint48 timestamp
+    ) external onlyKeeper {
+        networkMiddleware.slash(
+            vault,
+            validator,
+            amount,
+            timestamp
+        );
+    }
 
     //@notice: placeholder function, the logic will be updated in the future
     //@dev Internal function to calculate the capacity of the Vault
