@@ -187,4 +187,26 @@ function test_executeSlash() public {
         vm.startPrank(keeper);
         controller.executeSlash(validator, 100e18, uint48(block.timestamp));
         vm.stopPrank();
-}}
+}
+    function test_executeSlashWithZeroAmount() public {
+        address vaultAddr = controller.vault();
+        address validator = makeAddr("validator");
+
+        // Mock successful slash call with zero amount
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 0, uint48(block.timestamp)),
+            abi.encode()
+        );
+
+        vm.expectCall(
+            address(middleware),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 0, uint48(block.timestamp))
+        );
+
+        vm.startPrank(keeper);
+        controller.executeSlash(validator, 0, uint48(block.timestamp));
+        vm.stopPrank();
+    }
+
+}
