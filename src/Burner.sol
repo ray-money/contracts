@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {Controller} from "./Controller.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
+
 
 contract Burner {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -24,12 +26,12 @@ contract Burner {
         
         // Get base asset from controller's vault
         address vault = controller.vault();
-        baseAsset = controller.networkMiddleware().vaultConfigurator().getVaultConfig(vault).collateral;
+        baseAsset = IVault(vault).collateral();
         
         // Import supported assets from controller
-        uint256 numAssets = controller.supportedAssets().length;
-        for(uint256 i = 0; i < numAssets; i++) {
-            address asset = controller.supportedAssets(i);
+        address[] memory assets = controller.getSupportedAssets();
+        for(uint256 i = 0; i < assets.length; i++) {
+            address asset = assets[i];
             supportedAssets.add(asset);
             coveredAssetToCoverToken[asset] = controller.coveredAssetToCoverToken(asset);
         }
@@ -47,7 +49,7 @@ contract Burner {
 
         // Transfer cover tokens from caller and burn them
         IERC20(coverToken).transferFrom(msg.sender, address(this), amount);
-        IERC20(coverToken).burn(amount); // shouldn't work right now, we should arrange a role in CoverToken for that
+        // IERC20(coverToken).burn(amount); // shouldn't work right now, we should arrange a role in CoverToken for that
 
         // Transfer covered asset from caller
         IERC20(coveredAsset).transferFrom(msg.sender, address(this), amount);

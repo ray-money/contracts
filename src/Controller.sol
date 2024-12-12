@@ -46,8 +46,8 @@ contract Controller {
     }
 
     constructor(
-        address _networkMiddleware,
         address _coverTokenFactory,
+        address _networkMiddleware,
         address _keeper
     ) {
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
@@ -134,6 +134,19 @@ contract Controller {
             amount,
             timestamp
         );
+    }
+
+    /**
+     * @notice Returns an array of all supported assets
+     * @return Array of supported asset addresses
+     */
+    function getSupportedAssets() public view returns (address[] memory) {
+        uint256 length = supportedAssets.length();
+        address[] memory assets = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            assets[i] = supportedAssets.at(i);
+        }
+        return assets;
     }
 
     //@notice: placeholder function, the logic will be updated in the future
