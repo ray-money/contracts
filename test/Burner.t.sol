@@ -79,24 +79,24 @@ contract BurnerTest is Test {
         burner.initialize(address(controller), address(baseAsset));
     }
 
-    // function test_deployment() public {
-    //     assertEq(address(burner.controller()), address(controller));
-    //     assertEq(burner.baseAsset(), address(baseAsset));
+    function test_deployment() public {
+        assertEq(address(burner.controller()), address(controller));
+        assertEq(burner.baseAsset(), address(baseAsset));
         
-    //     // Check supported assets were imported correctly
-    //     assertTrue(burner.isAssetSupported(address(supportedAsset1)));
-    //     assertTrue(burner.isAssetSupported(address(supportedAsset2)));
+        // Check supported assets were imported correctly
+        assertTrue(burner.isAssetSupported(address(supportedAsset1)));
+        assertTrue(burner.isAssetSupported(address(supportedAsset2)));
 
-    //     // Check cover token mappings
-    //     assertEq(
-    //         burner.coveredAssetToCoverToken(address(supportedAsset1)),
-    //         controller.coveredAssetToCoverToken(address(supportedAsset1))
-    //     );
-    //     assertEq(
-    //         burner.coveredAssetToCoverToken(address(supportedAsset2)), 
-    //         controller.coveredAssetToCoverToken(address(supportedAsset2))
-    //     );
-    // }
+        // Check cover token mappings
+        assertEq(
+            burner.coveredAssetToCoverToken(address(supportedAsset1)),
+            controller.coveredAssetToCoverToken(address(supportedAsset1))
+        );
+        assertEq(
+            burner.coveredAssetToCoverToken(address(supportedAsset2)), 
+            controller.coveredAssetToCoverToken(address(supportedAsset2))
+        );
+    }
 
     function test_claimCoverage() public {
         // TODO: Implement after CoverToken burn functionality is added
