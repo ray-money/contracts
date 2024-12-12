@@ -162,4 +162,29 @@ contract ControllerTest is Test {
         assertEq(IERC20(coverToken2).balanceOf(user2), 50e18);
         vm.stopPrank();
     }
-}
+
+function test_executeSlash() public {
+        address vaultAddr = controller.vault();
+        address validator = makeAddr("validator");
+
+        vm.startPrank(user);
+        vm.expectRevert(Controller.NotKeeper.selector);
+        controller.executeSlash(validator, 100e18, uint48(block.timestamp));
+        vm.stopPrank();
+
+        // Mock successful slash call
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 100e18, uint48(block.timestamp)),
+            abi.encode()
+        );
+
+        vm.expectCall(
+            address(middleware),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 100e18, uint48(block.timestamp))
+        );
+
+        vm.startPrank(keeper);
+        controller.executeSlash(validator, 100e18, uint48(block.timestamp));
+        vm.stopPrank();
+}}
