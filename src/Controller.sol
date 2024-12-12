@@ -1,101 +1,117 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
+// These paths should be remapped so we aren't dependent on local paths
 import {ICoverTokenFactory} from "./interfaces/ICoverTokenFactory.sol";
 import {ICoverToken} from "./interfaces/ICoverToken.sol";
-import {INetworkMiddleware} from "./interfaces/INetworkMiddleware.sol";
-import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "./interfaces/IERC20Metadata.sol";
-import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+
+// Vault is a place e.g. Symbiotic vaults, Eigenlayer equivalent or regular ERC4626 vaults
+interface VaultLike {
+    function deposit(address token, uint256 amt, uint8 commTyp, bytes calldata opt) external;
+    function withdraw(address token, uint256 amt) external;
+}
+
+interface CoverLike {
+    function mint(address to, uint256 amt) external;
+    function burn(address from, uint256 amt) external;
+}
 
 contract Controller {
-
-    using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    /// @notice Market
+    struct Market {
+        address coverToken; 
+        address claimOracle;
+    }
+
+    mapping(address => Market) public markets;
+
+    event MarketCreated(address coverToken, address claimOracle);
+
+    /// @notice Strategy
+    struct Strategy {
+        uint256 strategyID;
+        // Each one is a VaultLike, meant to be delegate-called by the controller
+        EnumerableSet.AddressSet collateralVaults;
+        // The lower tranche number or index is, the more junior it is
+        // Because contributors can add tranche progressively by simply splitting
+        // portion of the yield for the new senior tranche to juniors
+        // Tranche is represented as a vault
+        mapping(uint8 => address) trancheTokens;
+        address authMod;
+        uint8 trancheCnt;
+    }
+
+    mapping(uint256 => Strategy) public strategies;
+
+    uint256 public strategyCnt;
+    
+
+    // ------------- Need review below, WIP ------------------------
+
+
+
 
     /// @notice The cover token factory contract instance
     ICoverTokenFactory public immutable coverTokenFactory;
 
-    /// @notice The network middleware contract instance
-    INetworkMiddleware public immutable networkMiddleware;
 
     /// @notice The vault address
     address public vault;
 
     /// @notice Set of supported assets for coverage
-    EnumerableSet.AddressSet private supportedAssets;
+    EnumerableSet.AddressSet public coveredAssets;
 
     /// @notice Mapping from covered asset to cover token address
     mapping(address => address) public coveredAssetToCoverToken;
 
-    /// @notice The keeper contract instance
-    address public immutable keeper;
-
     bool public initialized;
 
-    error NotKeeper();
     error AlreadyInitialized();
     error NoCoverTokenForAsset();
     error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
 
-    modifier onlyKeeper() {
-        if (msg.sender != keeper) revert NotKeeper();
-        _;
-    }
-
-    constructor(
-        address _coverTokenFactory,
-        address _networkMiddleware,
-        address _keeper
-    ) {
+    constructor(address _coverTokenFactory) {
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
-        networkMiddleware = INetworkMiddleware(_networkMiddleware);
-        keeper = _keeper;
+    }
+
+
+    /// @notice Creates a market
+    /// @notice A market is defined by a claim oracle, and a fungible and transferrable cover token
+    /// When a claim is made, the claim oracle decides how much of the coverage that the cover tokens
+    /// represent is eligible for claim.
+    /// E.g. There is 100 cover tokens representing 100 wstETH of coverage, 30% is claimable.
+    function createMarket(address _claimOracle) external returns (address _coverToken) {
+        _coverToken = coverTokenFactory.createCoverToken();
+        markets[_coverToken] = Market({
+            claimOracle: _claimOracle,
+            coverToken: _coverToken
+        });
+        emit MarketCreated(_coverToken, _claimOracle);
+    }
+
+    // mint cover tokens
+    function mintCoverTokens(address coverToken, uint256 amount) external {
+    }
+
+    // redeem cover tokens
+
+    // Deposit to one of the accepted collateral vaults.
+    // Depositor gets a mint of one of the tranche tokens, chosen by the depositor, representing a portion of the tranche.
+    // The tranche tokens are ERC20s.
+    // The collateral vaults are adaptors to interact with external protocols e.g. Symbiotic Vaults.
+    // The controller is the owner or beneficiary of the deposits on external protocols.
+    function depositAsLP(uint16 vaultID, address token, uint256 amt, uint8 commTyp, bytes calldata opt) external {
+        vaults[vaultID].deposit(token, amt, commTyp, opt);
 
     }
 
-    function initialize(
-        address _baseAsset,
-        uint48 _epochDuration,
-        address _defaultAdmin,
-        address[] memory _supportedAssets
-    ) external {
-        if (initialized) revert AlreadyInitialized();
-
-        // Create vault through middleware
-        (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
-            _baseAsset,
-            _epochDuration,
-            _defaultAdmin
-        );
-
-        // Store vault
-        vault = _vault;
-
-        // Store supported assets
-        for (uint256 i = 0; i < _supportedAssets.length; i++) {
-            supportedAssets.add(_supportedAssets[i]);
-        }
-
-        // Create cover tokens for each supported asset and store them in coveredAssetToCoverToken
-        for (uint256 i = 0; i < _supportedAssets.length; i++) {
-            address asset = _supportedAssets[i];
-            address coverToken = coverTokenFactory.createCoverToken(asset);
-            // Initialize the cover token with this contract as owner
-            ICoverToken(coverToken).initialize(
-                address(this),
-                asset,
-                string(abi.encodePacked("Ray ", IERC20Metadata(asset).name())),
-                string(abi.encodePacked("r", IERC20Metadata(asset).symbol()))
-            );
-            // Store the mapping of asset to cover token address
-            coveredAssetToCoverToken[asset] = coverToken;
-        }
-
-        initialized = true;
-    }
+    // Withdraw to Symbiotic vaults and Eigenlayer 
+    function withdrawAsLP(uint16 safeID, address token, uint256 amt) external {
+        vaults[vaultID].withdraw(token, amt);
+    } 
 
     /**
      * @notice Allows users to buy cover tokens directly from the contract
@@ -117,27 +133,27 @@ contract Controller {
     }
 
 
-    //@notice: placeholder function, the logic will be updated in the future
-    //@dev Internal function to calculate the capacity of the Vault
-    function _calculateCapacity() internal view returns (uint256) {
-        // Get the vault balance
-        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
+    // //@notice: placeholder function, the logic will be updated in the future
+    // //@dev Internal function to calculate the capacity of the Vault
+    // function _calculateCapacity() internal view returns (uint256) {
+    //     // Get the vault balance
+    //     uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
         
-        // Get number of supported assets
-        uint256 numSupportedAssets = supportedAssets.length();
+    //     // Get number of supported assets
+    //     uint256 numCoveredAssets = coveredAssets.length();
 
-        // Calculate total supply of all cover tokens
-        uint256 totalCoverTokenSupply;
-        for (uint256 i = 0; i < numSupportedAssets; i++) {
-            address asset = supportedAssets.at(i);
-            address coverToken = coveredAssetToCoverToken[asset];
-            if (coverToken != address(0)) {
-                totalCoverTokenSupply += IERC20(coverToken).totalSupply();
-            }
-        }
-        // Calculate capacity by multiplying balance by number of supported assets
-        uint256 capacity = (tokenBalance * numSupportedAssets) - totalCoverTokenSupply;
+    //     // Calculate total supply of all cover tokens
+    //     uint256 totalCoverTokenSupply;
+    //     for (uint256 i = 0; i < numCoveredAssets; i++) {
+    //         address asset = coveredAssets.at(i);
+    //         address coverToken = coveredAssetToCoverToken[asset];
+    //         if (coverToken != address(0)) {
+    //             totalCoverTokenSupply += IERC20(coverToken).totalSupply();
+    //         }
+    //     }
+    //     // Calculate capacity by multiplying balance by number of supported assets
+    //     uint256 capacity = (tokenBalance * numCoveredAssets) - totalCoverTokenSupply;
         
-        return capacity;
-    }
+    //     return capacity;
+    // }
 }

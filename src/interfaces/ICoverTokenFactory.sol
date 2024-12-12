@@ -2,5 +2,5 @@
 pragma solidity ^0.8.24;
 
 interface ICoverTokenFactory {
-    function createCoverToken(address baseAsset) external returns (address);
+    function createCoverToken() external returns (address);
 }
