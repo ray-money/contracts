@@ -50,8 +50,8 @@ contract Controller {
         address _coverTokenFactory,
         address _keeper
     ) {
-        coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
+        coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         keeper = _keeper;
 
     }
