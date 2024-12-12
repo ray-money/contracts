@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "lib/forge-std/src/Test.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockOperatorRewards} from "./mocks/MockOperatorRewards.sol";
 import {MockVaultConfigurator} from "./mocks/MockVaultConfigurator.sol";
@@ -12,6 +12,7 @@ import {CoverTokenFactory} from "../src/cover/CoverTokenFactory.sol";
 import {CoverToken} from "../src/cover/CoverToken.sol";
 import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperatorRewards/IDefaultOperatorRewards.sol";
 import {IVaultConfigurator} from "lib/core/src/interfaces/IVaultConfigurator.sol";
+import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 
 contract BurnerTest is Test {
     uint48 constant EPOCH_DURATION = 7 days;
@@ -27,6 +28,7 @@ contract BurnerTest is Test {
 
     address public keeper;
     address public user;
+    address public user2;
 
     function setUp() public {
         // Deploy mock tokens
@@ -37,6 +39,7 @@ contract BurnerTest is Test {
         // Setup addresses
         keeper = makeAddr("keeper");
         user = makeAddr("user");
+        user2 = makeAddr("user2");
 
         // Deploy core contracts
         CoverToken implementation = new CoverToken();
@@ -99,10 +102,71 @@ contract BurnerTest is Test {
     }
 
     function test_claimCoverage() public {
-        // TODO: Implement after CoverToken burn functionality is added
-        // Should test:
-        // - Transfer of cover tokens from user to burner
-        // - Burning of cover tokens
-        // - Transfer of base asset to user
+        // Get vault address
+        address vaultAddr = controller.vault();
+        
+        // Mint base asset to user for vault deposit
+        baseAsset.mint(user, 100e18);
+        
+        // User deposits base asset to vault
+        vm.startPrank(user);
+        baseAsset.approve(vaultAddr, 100e18);
+        IVault(vaultAddr).deposit(user, 100e18);
+        vm.stopPrank();
+
+        // User2 buys cover for supported asset 1
+        vm.startPrank(user2);
+        controller.buyCover(address(supportedAsset1), 50e18);
+        
+        // Mint some supported asset to user2 for claiming
+        supportedAsset1.mint(user2, 50e18);
+        
+        // Approve burner to spend tokens
+        address coverToken = controller.coveredAssetToCoverToken(address(supportedAsset1));
+        MockERC20(coverToken).approve(address(burner), 50e18);
+        supportedAsset1.approve(address(burner), 50e18);
+        vm.stopPrank();
+
+        // Mock the slash call
+        address validator = makeAddr("validator");
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                NetworkMiddleware.slash.selector,
+                vaultAddr,
+                validator,
+                50e18,
+                uint48(block.timestamp)
+            ),
+            abi.encode()
+        );
+
+        // Mock the vault's onSlash to transfer base asset to burner
+        vm.mockCall(
+            vaultAddr,
+            abi.encodeWithSelector(
+                IVault.onSlash.selector,
+                50e18,
+                uint48(block.timestamp)
+            ),
+            abi.encode(50e18)  // Return slashed amount
+        );
+
+        // Keeper executes slash which triggers vault to send funds to burner
+        vm.prank(keeper);
+        controller.executeSlash(validator, 50e18, uint48(block.timestamp));
+
+        // Transfer base asset to burner (simulating vault's behavior)
+        baseAsset.mint(address(burner), 50e18);
+
+        // User2 claims coverage
+        vm.startPrank(user2);
+        burner.claimCoverage(address(supportedAsset1), 50e18);
+
+        // Verify balances after claim
+        assertEq(MockERC20(coverToken).balanceOf(user2), 0); // Cover tokens burned
+        assertEq(supportedAsset1.balanceOf(user2), 0); // Supported asset transferred
+        assertEq(baseAsset.balanceOf(user2), 50e18); // Base asset received
+        vm.stopPrank();
     }
 }
