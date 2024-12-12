@@ -10,7 +10,7 @@ import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 contract Burner {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    Controller public immutable controller;
+    Controller public controller;
     
     // Set of supported assets for coverage
     EnumerableSet.AddressSet private supportedAssets;
@@ -19,15 +19,17 @@ contract Burner {
     mapping(address => address) public coveredAssetToCoverToken;
 
     // Base asset used for coverage
-    address public immutable baseAsset;
+    address public baseAsset;
     
-    constructor(address _controller) {
+    constructor() {}
+
+    function initialize(address _controller, address _baseAsset) external {
         controller = Controller(_controller);
-        
+        baseAsset = _baseAsset;
+
         // Get base asset from controller's vault
         address vault = controller.vault();
-        baseAsset = IVault(vault).collateral();
-        
+
         // Import supported assets from controller
         address[] memory assets = controller.getSupportedAssets();
         for(uint256 i = 0; i < assets.length; i++) {
@@ -56,5 +58,14 @@ contract Burner {
 
         // Transfer base asset to caller
         IERC20(baseAsset).transfer(msg.sender, amount);
+    }
+
+    /**
+     * @notice Checks if an asset is supported for coverage
+     * @param asset The address of the asset to check
+     * @return bool True if the asset is supported, false otherwise
+     */
+    function isAssetSupported(address asset) public view returns (bool) {
+        return supportedAssets.contains(asset);
     }
 }
