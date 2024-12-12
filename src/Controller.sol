@@ -33,7 +33,10 @@ contract Controller {
     /// @notice The keeper contract instance
     address public immutable keeper;
 
+    bool public initialized;
+
     error NotKeeper();
+    error AlreadyInitialized();
     error NoCoverTokenForAsset();
     error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
 
@@ -45,15 +48,21 @@ contract Controller {
     constructor(
         address _networkMiddleware,
         address _coverTokenFactory,
-        address _keeper,
-        address _baseAsset,
-        uint48 _epochDuration,
-        address _defaultAdmin,
-        address[] memory _supportedAssets
+        address _keeper
     ) {
         coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
         keeper = _keeper;
+
+    }
+
+    function initialize(
+        address _baseAsset,
+        uint48 _epochDuration,
+        address _defaultAdmin,
+        address[] memory _supportedAssets
+    ) external {
+        if (initialized) revert AlreadyInitialized();
 
         // Create vault through middleware
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
@@ -70,7 +79,7 @@ contract Controller {
             supportedAssets.add(_supportedAssets[i]);
         }
 
-        // Create cover tokens for each supported asset and store them in idToCoverToken
+        // Create cover tokens for each supported asset and store them in coveredAssetToCoverToken
         for (uint256 i = 0; i < _supportedAssets.length; i++) {
             address asset = _supportedAssets[i];
             address coverToken = coverTokenFactory.createCoverToken(asset);
@@ -84,6 +93,8 @@ contract Controller {
             // Store the mapping of asset to cover token address
             coveredAssetToCoverToken[asset] = coverToken;
         }
+
+        initialized = true;
     }
 
     /**
@@ -130,7 +141,7 @@ contract Controller {
     function _calculateCapacity() internal view returns (uint256) {
         // Get the vault balance
         uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
-        
+
         // Get number of supported assets
         uint256 numSupportedAssets = supportedAssets.length();
 
@@ -145,7 +156,7 @@ contract Controller {
         }
         // Calculate capacity by multiplying balance by number of supported assets
         uint256 capacity = (tokenBalance * numSupportedAssets) - totalCoverTokenSupply;
-        
+
         return capacity;
     }
 }

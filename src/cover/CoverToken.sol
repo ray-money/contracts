@@ -7,9 +7,7 @@ import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeab
 
 contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     address public collateralAsset;
-    bool private initialized;
 
-    error AlreadyInitialized();
     error InvalidOwner();
     error InvalidName();
     error InvalidSymbol();
@@ -27,8 +25,7 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         address _collateralAsset,
         string memory _name,
         string memory _symbol
-    ) external {
-        if (initialized) revert AlreadyInitialized();
+    ) external initializer {
         if (_owner == address(0)) revert InvalidOwner();
         if (bytes(_name).length == 0) revert InvalidName();
         if (bytes(_symbol).length == 0) revert InvalidSymbol();
@@ -36,7 +33,6 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         __ERC20_init(_name, _symbol);
         _transferOwnership(_owner);
         collateralAsset = _collateralAsset;
-        initialized = true;
     }
 
     /**
