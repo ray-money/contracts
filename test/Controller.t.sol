@@ -76,48 +76,4 @@ contract ControllerTest is Test {
     function test_deployment() public {
         setUp();
     }
-    // function test_buyCover() public {
-    //     uint256 amount = 1000e18;
-    //     address coveredAsset = address(supportedAsset1);
-
-    //     // Setup vault balance to allow cover purchase
-    //     deal(address(coveredAsset), address(middleware), amount * 10);
-        
-    //     // Setup user with tokens and approve spending
-    //     deal(address(supportedAsset1), user, amount);
-    //     vm.startPrank(user);
-    //     supportedAsset1.approve(address(controller), amount);
-
-    //     // Buy cover
-    //     controller.buyCover(coveredAsset, amount);
-    //     vm.stopPrank();
-
-    //     // Verify cover token balance
-    //     address coverTokenAddr = controller.coveredAssetToCoverToken(coveredAsset);
-    //     assertEq(IERC20(coverTokenAddr).balanceOf(user), amount);
-    // }
-
-    // function testFail_buyCoverExceedsCapacity() public {
-    //     uint256 amount = type(uint256).max;
-    //     address coveredAsset = address(supportedAsset1);
-
-    //     vm.startPrank(user);
-    //     supportedAsset1.approve(address(controller), amount);
-        
-    //     // Should revert with AmountExceedsCapacity
-    //     controller.buyCover(coveredAsset, amount);
-    //     vm.stopPrank();
-    // }
-
-    // function testFail_buyCoverInvalidAsset() public {
-    //     uint256 amount = 1000e18;
-    //     address invalidCoveredAsset = makeAddr("invalidAsset");
-
-    //     vm.startPrank(user);
-    //     supportedAsset1.approve(address(controller), amount);
-        
-    //     // Should revert with NoCoverTokenForAsset
-    //     controller.buyCover(invalidCoveredAsset, amount);
-    //     vm.stopPrank();
-    // }
 }
