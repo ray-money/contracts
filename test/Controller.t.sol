@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "lib/forge-std/src/Test.sol";
 import {Controller} from "../src/Controller.sol";
 import {CoverToken} from "../src/cover/CoverToken.sol";
 import {CoverTokenFactory} from "../src/cover/CoverTokenFactory.sol";
 import {NetworkMiddleware} from "../src/NetworkMiddleware.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockOperatorRewards} from "./mocks/MockOperatorRewards.sol";
 import {MockVaultConfigurator} from "./mocks/MockVaultConfigurator.sol";
 import {IVaultConfigurator} from "lib/core/src/interfaces/IVaultConfigurator.sol";
 import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperatorRewards/IDefaultOperatorRewards.sol";
 import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
-
-import {console} from "forge-std/console.sol";
-
+import {INetworkMiddleware} from "../src/interfaces/INetworkMiddleware.sol";
 
 contract ControllerTest is Test {
     Controller public controller;
@@ -91,7 +89,7 @@ contract ControllerTest is Test {
         // User approves and deposits base asset to vault
         vm.startPrank(user);
         baseAsset.approve(vaultAddr, 100e18);
-        IVault(vaultAddr).deposit(100e18, user);
+        IVault(vaultAddr).deposit(user, 100e18);
         vm.stopPrank();
 
         // User2 buys cover for supported asset 1
@@ -103,5 +101,65 @@ contract ControllerTest is Test {
         // Verify cover token balance
         address coverToken = controller.coveredAssetToCoverToken(address(supportedAsset1));
         assertEq(IERC20(coverToken).balanceOf(user2), 50e18);
+    }
+    function test_buyCoverRevertsWhenUnsupportedAsset() public {
+        vm.startPrank(user);
+        baseAsset.approve(address(controller), 50e18);
+        
+        address randomAsset = makeAddr("randomAsset");
+        vm.expectRevert(Controller.NoCoverTokenForAsset.selector);
+        controller.buyCover(randomAsset, 50e18);
+        vm.stopPrank();
+    }
+
+    function test_buyCoverRevertsWhenAmountExceedsCapacity() public {
+        // Get vault address
+        address vaultAddr = controller.vault();
+        
+        // User deposits small amount to vault
+        vm.startPrank(user);
+        baseAsset.approve(vaultAddr, 10e18);
+        IVault(vaultAddr).deposit(user, 10e18);
+        vm.stopPrank();
+
+        // Mock the getVaultActiveBalance call to return 10e18
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(INetworkMiddleware.getVaultActiveBalance.selector, vaultAddr, address(controller)),
+            abi.encode(10e18)
+        );
+
+        // User2 tries to buy more cover than vault capacity
+        vm.startPrank(user2);
+        baseAsset.approve(address(controller), 21e18);
+        vm.expectRevert(abi.encodeWithSelector(Controller.AmountExceedsCapacity.selector, 21e18, 20e18));
+        controller.buyCover(address(supportedAsset1), 21e18);
+        vm.stopPrank();
+    }
+
+    function test_buyCoverForMultipleAssets() public {
+        // Get vault address
+        address vaultAddr = controller.vault();
+        
+        // User deposits base asset to vault
+        vm.startPrank(user);
+        baseAsset.approve(vaultAddr, 200e18);
+        IVault(vaultAddr).deposit(user, 200e18);
+        vm.stopPrank();
+
+        // User2 buys cover for both supported assets
+        vm.startPrank(user2);
+        baseAsset.approve(address(controller), 100e18);
+        
+        controller.buyCover(address(supportedAsset1), 50e18);
+        controller.buyCover(address(supportedAsset2), 50e18);
+
+        // Verify cover token balances
+        address coverToken1 = controller.coveredAssetToCoverToken(address(supportedAsset1));
+        address coverToken2 = controller.coveredAssetToCoverToken(address(supportedAsset2));
+        
+        assertEq(IERC20(coverToken1).balanceOf(user2), 50e18);
+        assertEq(IERC20(coverToken2).balanceOf(user2), 50e18);
+        vm.stopPrank();
     }
 }
