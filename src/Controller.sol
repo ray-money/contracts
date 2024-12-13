@@ -43,6 +43,7 @@ contract Controller {
     error AlreadyInitialized();
     error NoCoverTokenForAsset();
     error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
+    error InsufficientBalance(uint256 activeBalance, uint256 amount);
     error InvalidAmount();
 
     // ============ Modifiers ============
@@ -124,6 +125,16 @@ contract Controller {
         uint48 timestamp
     ) external onlyKeeper {
         networkMiddleware.slash(vault, operator, amount, timestamp);
+    }
+
+    function allocateOperatorStake(
+        address operator,
+        uint256 amount
+    ) external {
+        uint256 activeBalance = networkMiddleware.getVaultActiveBalance(vault, msg.sender);
+        if (activeBalance < amount) revert InsufficientBalance(activeBalance, amount);
+
+        networkMiddleware.allocateStake(vault, operator, amount);
     }
 
     // ============ View Functions ============

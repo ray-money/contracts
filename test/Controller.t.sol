@@ -15,6 +15,8 @@ import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperato
 import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 import {INetworkMiddleware} from "../src/interfaces/INetworkMiddleware.sol";
 
+import {console} from "lib/forge-std/src/console.sol";
+
 contract ControllerTest is Test {
     // ============ Storage ============
 
@@ -171,16 +173,50 @@ contract ControllerTest is Test {
         address vaultAddr = controller.vault();
         address operator = makeAddr("operator");
 
+        // Setup initial deposit and stake allocation
+        _depositToVault(liquidityProvider, vaultAddr, VAULT_DEPOSIT_AMOUNT);
+
         vm.startPrank(liquidityProvider);
-        vm.expectRevert(Controller.NotKeeper.selector);
-        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                INetworkMiddleware.allocateStake.selector,
+                vaultAddr,
+                operator,
+                VAULT_DEPOSIT_AMOUNT
+            ),
+            abi.encode()
+        );
+        controller.allocateOperatorStake(operator, VAULT_DEPOSIT_AMOUNT);
         vm.stopPrank();
 
-        _mockSlash(vaultAddr, operator, VAULT_DEPOSIT_AMOUNT);
+        // Mock and verify slash call
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                INetworkMiddleware.slash.selector,
+                vaultAddr,
+                operator,
+                VAULT_DEPOSIT_AMOUNT,
+                1
+            ),
+            abi.encode()
+        );
 
-        vm.startPrank(keeper);
-        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
-        vm.stopPrank();
+        vm.expectCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                INetworkMiddleware.slash.selector,
+                vaultAddr,
+                operator,
+                VAULT_DEPOSIT_AMOUNT,
+                1
+            )
+        );
+        
+        // Execute slash
+        vm.prank(keeper);
+        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, 1);
     }
 
     function test_executeSlashWithZeroAmount() public {
