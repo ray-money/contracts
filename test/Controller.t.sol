@@ -85,6 +85,14 @@ contract ControllerTest is Test {
 
     function test_deployment() public {
         setUp();
+        
+        // Verify initial state
+        assertEq(controller.keeper(), keeper);
+        assertEq(controller.baseAsset(), address(baseAsset));
+        assertTrue(controller.isSupportedAsset(address(supportedAsset1)));
+        assertTrue(controller.isSupportedAsset(address(supportedAsset2)));
+        assertEq(address(controller.coverTokenFactory()), address(factory));
+        assertEq(address(controller.networkMiddleware()), address(middleware));
     }
 
     function test_depositAndBuyCover() public {
@@ -107,6 +115,7 @@ contract ControllerTest is Test {
         address coverToken = controller.coveredAssetToCoverToken(address(supportedAsset1));
         assertEq(IERC20(coverToken).balanceOf(coverageBuyer), COVER_AMOUNT);
     }
+
     function test_buyCoverRevertsWhenUnsupportedAsset() public {
         vm.startPrank(liquidityProvider);
         baseAsset.approve(address(controller), COVER_AMOUNT);
@@ -168,7 +177,7 @@ contract ControllerTest is Test {
         vm.stopPrank();
     }
 
-function test_executeSlash() public {
+    function test_executeSlash() public {
         address vaultAddr = controller.vault();
         address validator = makeAddr("validator");
 
@@ -192,7 +201,8 @@ function test_executeSlash() public {
         vm.startPrank(keeper);
         controller.executeSlash(validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
         vm.stopPrank();
-}
+    }
+
     function test_executeSlashWithZeroAmount() public {
         address vaultAddr = controller.vault();
         address validator = makeAddr("validator");
@@ -215,7 +225,6 @@ function test_executeSlash() public {
     }
 
     function test_claimCoverage() public {
-
         // Get vault address
         address vaultAddr = controller.vault();
         
@@ -281,6 +290,20 @@ function test_executeSlash() public {
         assertEq(MockERC20(coverToken).balanceOf(coverageBuyer), 0); // Cover tokens burned
         assertEq(supportedAsset1.balanceOf(coverageBuyer), 0); // Supported asset transferred
         assertEq(baseAsset.balanceOf(coverageBuyer), COVER_AMOUNT); // Base asset received
+        vm.stopPrank();
+    }
+
+    function test_buyCoverRevertsWhenZeroAmount() public {
+        vm.startPrank(coverageBuyer);
+        vm.expectRevert(Controller.InvalidAmount.selector);
+        controller.buyCover(address(supportedAsset1), 0);
+        vm.stopPrank();
+    }
+
+    function test_claimCoverageRevertsWhenZeroAmount() public {
+        vm.startPrank(coverageBuyer);
+        vm.expectRevert(Controller.InvalidAmount.selector);
+        controller.claimCoverage(address(supportedAsset1), 0);
         vm.stopPrank();
     }
 

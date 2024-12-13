@@ -42,6 +42,7 @@ contract Controller {
     error AlreadyInitialized();
     error NoCoverTokenForAsset();
     error AmountExceedsCapacity(uint256 amount, uint256 maxAmount);
+    error InvalidAmount();
 
     modifier onlyKeeper() {
         if (msg.sender != keeper) revert NotKeeper();
@@ -111,6 +112,8 @@ contract Controller {
      * @dev User must approve this contract to spend their tokens
      */
     function buyCover(address coveredAsset, uint256 amount) external {
+        if (amount == 0) revert InvalidAmount();
+        
         address coverToken = coveredAssetToCoverToken[coveredAsset];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
@@ -129,6 +132,8 @@ contract Controller {
      * @dev Transfers covered asset and cover tokens from caller to this contract, sends base asset to caller
      */
     function claimCoverage(address coveredAsset, uint256 amount) external {
+        if (amount == 0) revert InvalidAmount();
+        
         // Get cover token address for the covered asset
         address coverToken = coveredAssetToCoverToken[coveredAsset];
 
@@ -199,4 +204,14 @@ contract Controller {
 
         return capacity;
     }
+
+    /**
+     * @notice Checks if an asset is supported
+     * @param asset Address of the asset to check
+     * @return bool True if the asset is supported, false otherwise
+     */
+    function isSupportedAsset(address asset) public view returns (bool) {
+        return supportedAssets.contains(asset);
+    }
+
 }
