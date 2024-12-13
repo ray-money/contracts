@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Install Foundry
+        run: |
+          # Download and run the Foundry installer script
+          curl -L https://foundry.paradigm.xyz | bash
+          foundryup
+          # foundryup updates Foundry and makes `forge` and `cast` available in $PATH
+
+      - name: Run tests
+        run: forge test
