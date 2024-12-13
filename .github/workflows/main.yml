@@ -17,8 +17,10 @@ jobs:
         run: |
           # Install Foundry
           curl -L https://foundry.paradigm.xyz | bash
+          # Manually add Foundry bin to PATH for this session
+          export PATH="$HOME/.foundry/bin:$PATH"
           # Now call foundryup
-          $HOME/.foundry/bin/foundryup
+          foundryup
 
       - name: Run tests
-        run: $HOME/.foundry/bin/forge test
+        run: forge test
