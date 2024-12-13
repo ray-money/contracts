@@ -172,51 +172,16 @@ contract ControllerTest is Test {
     function test_executeSlash() public {
         address vaultAddr = controller.vault();
         address operator = makeAddr("operator");
-
-        // Setup initial deposit and stake allocation
+        
+        // Setup initial state
         _depositToVault(liquidityProvider, vaultAddr, VAULT_DEPOSIT_AMOUNT);
-
-        vm.startPrank(liquidityProvider);
-        vm.mockCall(
-            address(middleware),
-            abi.encodeWithSelector(
-                INetworkMiddleware.allocateStake.selector,
-                vaultAddr,
-                operator,
-                VAULT_DEPOSIT_AMOUNT
-            ),
-            abi.encode()
-        );
-        controller.allocateOperatorStake(operator, VAULT_DEPOSIT_AMOUNT);
-        vm.stopPrank();
-
-        // Mock and verify slash call
-        vm.mockCall(
-            address(middleware),
-            abi.encodeWithSelector(
-                INetworkMiddleware.slash.selector,
-                vaultAddr,
-                operator,
-                VAULT_DEPOSIT_AMOUNT,
-                1
-            ),
-            abi.encode()
-        );
-
-        vm.expectCall(
-            address(middleware),
-            abi.encodeWithSelector(
-                INetworkMiddleware.slash.selector,
-                vaultAddr,
-                operator,
-                VAULT_DEPOSIT_AMOUNT,
-                1
-            )
-        );
+        _mockAllocateStake(vaultAddr, operator, VAULT_DEPOSIT_AMOUNT);
+        _allocateStake(liquidityProvider, operator, VAULT_DEPOSIT_AMOUNT);
+        _mockSlash(vaultAddr, operator, VAULT_DEPOSIT_AMOUNT);
         
         // Execute slash
         vm.prank(keeper);
-        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, 1);
+        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
     }
 
     function test_executeSlashWithZeroAmount() public {
@@ -225,9 +190,16 @@ contract ControllerTest is Test {
 
         _mockSlash(vaultAddr, operator, 0);
 
-        vm.startPrank(keeper);
+        vm.prank(keeper);
         controller.executeSlash(operator, 0, uint48(block.timestamp));
-        vm.stopPrank();
+    }
+
+    function test_executeSlashRevertsWhenNotKeeper() public {
+        address operator = makeAddr("operator");
+
+        vm.expectRevert(Controller.NotKeeper.selector);
+        vm.prank(liquidityProvider);
+        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
     }
 
     function test_claimCoverage() public {
@@ -279,16 +251,46 @@ contract ControllerTest is Test {
         vm.stopPrank();
     }
 
+    function _mockAllocateStake(address vault, address operator, uint256 amount) internal {
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                INetworkMiddleware.allocateStake.selector,
+                vault,
+                operator,
+                amount
+            ),
+            abi.encode()
+        );
+    }
+
+    function _allocateStake(address staker, address operator, uint256 amount) internal {
+        vm.prank(staker);
+        controller.allocateOperatorStake(operator, amount);
+    }
+
     function _mockSlash(address vault, address operator, uint256 amount) internal {
         vm.mockCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vault, operator, amount, uint48(block.timestamp)),
+            abi.encodeWithSelector(
+                INetworkMiddleware.slash.selector,
+                vault,
+                operator,
+                amount,
+                uint48(block.timestamp)
+            ),
             abi.encode()
         );
 
         vm.expectCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vault, operator, amount, uint48(block.timestamp))
+            abi.encodeWithSelector(
+                INetworkMiddleware.slash.selector,
+                vault,
+                operator,
+                amount,
+                uint48(block.timestamp)
+            )
         );
     }
 
