@@ -273,6 +273,19 @@ contract ControllerTest is Test {
         vm.stopPrank();
     }
 
+    function test_claimCoverageRevertsWhenNoCoverToken() public {
+        address randomAsset = makeAddr("randomAsset");
+        
+        // Verify the asset is not supported and has no cover token
+        assertFalse(controller.isSupportedAsset(randomAsset));
+        assertEq(controller.coveredAssetToCoverToken(randomAsset), address(0));
+        
+        vm.startPrank(coverageBuyer);
+        vm.expectRevert(Controller.NoCoverTokenForAsset.selector);
+        controller.claimCoverage(randomAsset, COVER_AMOUNT);
+        vm.stopPrank();
+    }
+
     function test_buyCoverRevertsWhenCapacityExceeded() public {
         address vaultAddr = controller.vault();
         

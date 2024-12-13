@@ -111,6 +111,7 @@ contract Controller {
         if (amount == 0) revert InvalidAmount();
         
         address coverToken = coveredAssetToCoverToken[coveredAsset];
+        if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         ICoverToken(coverToken).burn(msg.sender, amount);
         IERC20(coveredAsset).transferFrom(msg.sender, address(this), amount);
