@@ -18,7 +18,7 @@ jobs:
           # Install Foundry
           curl -L https://foundry.paradigm.xyz | bash
           # Now call foundryup
-          run: $HOME/.foundry/bin/foundryup
+          $HOME/.foundry/bin/foundryup
 
       - name: Run tests
         run: $HOME/.foundry/bin/forge test
