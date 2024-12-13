@@ -235,6 +235,69 @@ contract ControllerTest is Test {
         vm.stopPrank();
     }
 
+    function test_initializeRevertsWhenAlreadyInitialized() public {
+        address[] memory supportedAssets = new address[](2);
+        supportedAssets[0] = address(supportedAsset1);
+        supportedAssets[1] = address(supportedAsset2);
+
+        vm.expectRevert(Controller.AlreadyInitialized.selector);
+        controller.initialize(
+            address(collateralAsset),
+            EPOCH_DURATION,
+            address(this),
+            supportedAssets
+        );
+    }
+
+    function test_allocateOperatorStakeRevertsWhenInsufficientBalance() public {
+        address vaultAddr = controller.vault();
+        address operator = makeAddr("operator");
+        
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                INetworkMiddleware.getVaultActiveBalance.selector,
+                vaultAddr,
+                liquidityProvider
+            ),
+            abi.encode(SMALL_DEPOSIT)
+        );
+
+        vm.startPrank(liquidityProvider);
+        vm.expectRevert(abi.encodeWithSelector(
+            Controller.InsufficientBalance.selector,
+            SMALL_DEPOSIT,
+            VAULT_DEPOSIT_AMOUNT
+        ));
+        controller.allocateOperatorStake(operator, VAULT_DEPOSIT_AMOUNT);
+        vm.stopPrank();
+    }
+
+    function test_buyCoverRevertsWhenCapacityExceeded() public {
+        address vaultAddr = controller.vault();
+        
+        _depositToVault(liquidityProvider, vaultAddr, SMALL_DEPOSIT);
+
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                INetworkMiddleware.getVaultActiveBalance.selector,
+                vaultAddr,
+                address(controller)
+            ),
+            abi.encode(SMALL_DEPOSIT)
+        );
+
+        vm.startPrank(coverageBuyer);
+        vm.expectRevert(abi.encodeWithSelector(
+            Controller.AmountExceedsCapacity.selector,
+            LARGE_COVER_AMOUNT,
+            MAX_CAPACITY
+        ));
+        controller.buyCover(address(supportedAsset1), LARGE_COVER_AMOUNT);
+        vm.stopPrank();
+    }
+
     // ============ Helper Functions ============
 
     function _depositToVault(address depositor, address vault, uint256 amount) internal {
