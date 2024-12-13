@@ -7,20 +7,30 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Foundry project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Foundry
-        shell: bash
-        run: |
-          # Install Foundry
-          curl -L https://foundry.paradigm.xyz | bash
-          # Manually add Foundry bin to PATH for this session
-          export PATH="$HOME/.foundry/bin:$PATH"
-          # Now call foundryup
-          foundryup
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
 
-      - name: Run tests
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge build --sizes
+        id: build
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test      - name: Run tests
         run: forge test
