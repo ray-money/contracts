@@ -31,7 +31,7 @@ import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
 import {IVaultConfigurator} from "lib/core/src/interfaces/IVaultConfigurator.sol";
 
 /** 
- * @notice ISlasher - Handles punishment mechanisms for malicious or misbehaving validators/operators
+ * @notice ISlasher - Handles punishment mechanisms for malicious or misbehaving operators
  * @notice IVetoSlasher - Provides mechanism to prevent or override slashing actions for governance/safety
  */
 import {ISlasher} from "lib/core/src/interfaces/slasher/ISlasher.sol";
@@ -45,7 +45,7 @@ import {IVetoSlasher} from "lib/core/src/interfaces/slasher/IVetoSlasher.sol";
 import {INetworkRestakeDelegator} from "lib/core/src/interfaces/delegator/INetworkRestakeDelegator.sol";
 
 //@notice IDefaultStakerRewards - Defines how rewards are distributed to users who stake assets
-//@notice IDefaultOperatorRewards - Defines how rewards are distributed to operators/validators
+//@notice IDefaultOperatorRewards - Defines how rewards are distributed to operators
 import {IDefaultStakerRewards} from "lib/rewards/src/interfaces/defaultStakerRewards/IDefaultStakerRewards.sol";
 import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperatorRewards/IDefaultOperatorRewards.sol";
 
@@ -227,43 +227,43 @@ contract NetworkMiddleware is Ownable {
     }
 
     /**
-     * @notice Allocates stake to a validator through a vault
+     * @notice Allocates stake to an operator through a vault
      * @param vault The vault address to allocate stake through
-     * @param validator The validator address to allocate stake to
+     * @param operator The operator address to allocate stake to
      * @param amount The amount of stake to allocate
      * @dev Only callable by owner and for authorized vaults
      */
     function allocateStake(
         address vault,
-        address validator,
+        address operator,
         uint256 amount
     ) external onlyOwner onlyAuthorized(vault) {
         INetworkRestakeDelegator(IVault(vault).delegator())
             .setOperatorNetworkShares(
                 bytes32(bytes20(address(this))),  // Using this contract's address instead
-                validator,
+                operator,
                 amount
             );
     }
 
     /**
-     * @notice Slashes a validator's stake through a vault
+     * @notice Slashes an operator's stake through a vault
      * @param vault The vault address to slash through
-     * @param validator The validator address to slash
+     * @param operator The operator address to slash
      * @param amount The amount to slash
      * @param timestamp The timestamp of the slashing event
      * @dev Only callable by owner and for authorized vaults
      */
     function slash(
         address vault,
-        address validator,
+        address operator,
         uint256 amount,
         uint48 timestamp
     ) external onlyOwner onlyAuthorized(vault) {
         bytes32 networkId = bytes32(bytes20(network));
         ISlasher(IVault(vault).slasher()).slash(
             networkId,
-            validator,
+            operator,
             amount,
             timestamp,
             new bytes(0)

@@ -149,20 +149,20 @@ contract Controller {
 
 
     /**
-     * @notice Allows the keeper to slash validators through the network middleware
-     * @param validator The address of the validator to slash
+     * @notice Allows the keeper to slash operators through the network middleware
+     * @param operator The address of the operator to slash
      * @param amount The amount to slash
      * @param timestamp The timestamp of the slashing event
      * @dev Only callable by keeper
      */
     function executeSlash(
-        address validator,
+        address operator,
         uint256 amount,
         uint48 timestamp
     ) external onlyKeeper {
         networkMiddleware.slash(
             vault,
-            validator,
+            operator,
             amount,
             timestamp
         );

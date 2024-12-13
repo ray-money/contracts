@@ -179,48 +179,48 @@ contract ControllerTest is Test {
 
     function test_executeSlash() public {
         address vaultAddr = controller.vault();
-        address validator = makeAddr("validator");
+        address operator = makeAddr("operator");
 
         vm.startPrank(liquidityProvider);
         vm.expectRevert(Controller.NotKeeper.selector);
-        controller.executeSlash(validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
+        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
         vm.stopPrank();
 
         // Mock successful slash call
         vm.mockCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp)),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp)),
             abi.encode()
         );
 
         vm.expectCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp))
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp))
         );
 
         vm.startPrank(keeper);
-        controller.executeSlash(validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
+        controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
         vm.stopPrank();
     }
 
     function test_executeSlashWithZeroAmount() public {
         address vaultAddr = controller.vault();
-        address validator = makeAddr("validator");
+        address operator = makeAddr("operator");
 
         // Mock successful slash call with zero amount
         vm.mockCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 0, uint48(block.timestamp)),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, operator, 0, uint48(block.timestamp)),
             abi.encode()
         );
 
         vm.expectCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 0, uint48(block.timestamp))
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, operator, 0, uint48(block.timestamp))
         );
 
         vm.startPrank(keeper);
-        controller.executeSlash(validator, 0, uint48(block.timestamp));
+        controller.executeSlash(operator, 0, uint48(block.timestamp));
         vm.stopPrank();
     }
 
@@ -251,13 +251,13 @@ contract ControllerTest is Test {
         vm.stopPrank();
 
         // Mock the slash call
-        address validator = makeAddr("validator");
+        address operator = makeAddr("operator");
         vm.mockCall(
             address(middleware),
             abi.encodeWithSelector(
                 NetworkMiddleware.slash.selector,
                 vaultAddr,
-                validator,
+                operator,
                 COVER_AMOUNT,
                 uint48(block.timestamp)
             ),
@@ -277,7 +277,7 @@ contract ControllerTest is Test {
 
         // Keeper executes slash which triggers vault to send funds to controller
         vm.prank(keeper);
-        controller.executeSlash(validator, COVER_AMOUNT, uint48(block.timestamp));
+        controller.executeSlash(operator, COVER_AMOUNT, uint48(block.timestamp));
 
         // Transfer collateral asset to controller (simulating vault's behavior)
         collateralAsset.mint(address(controller), COVER_AMOUNT);
