@@ -17,10 +17,8 @@ jobs:
         run: |
           # Install Foundry
           curl -L https://foundry.paradigm.xyz | bash
-          # Source the bashrc to load PATH changes
-          source ~/.bashrc
           # Now call foundryup
-          foundryup
+          run: $HOME/.foundry/bin/foundryup
 
       - name: Run tests
-        run: forge test
+        run: $HOME/.foundry/bin/forge test
