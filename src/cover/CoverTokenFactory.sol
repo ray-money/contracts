@@ -22,10 +22,9 @@ contract CoverTokenFactory {
     
     /**
      * @dev Creates a new CoverToken clone
-     * @param baseAsset The base asset of the cover token
      * @return Address of the newly created CoverToken clone
      */
-    function createCoverToken(address baseAsset) external returns (address) {
+    function createCoverToken() external returns (address) {
         // Create minimal proxy clone of the implementation
         address clone = Clones.clone(implementation);
         return clone;

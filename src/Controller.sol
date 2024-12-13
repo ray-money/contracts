@@ -8,7 +8,7 @@ import {INetworkMiddleware} from "./interfaces/INetworkMiddleware.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "./interfaces/IERC20Metadata.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 contract Controller {
 
@@ -32,6 +32,9 @@ contract Controller {
 
     /// @notice The keeper contract instance
     address public immutable keeper;
+
+    /// @notice The base asset (token) used for coverage
+    address public baseAsset;
 
     bool public initialized;
 
@@ -64,6 +67,9 @@ contract Controller {
     ) external {
         if (initialized) revert AlreadyInitialized();
 
+        // Store base asset
+        baseAsset = _baseAsset;
+
         // Create vault through middleware
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
             _baseAsset,
@@ -82,7 +88,7 @@ contract Controller {
         // Create cover tokens for each supported asset and store them in coveredAssetToCoverToken
         for (uint256 i = 0; i < _supportedAssets.length; i++) {
             address asset = _supportedAssets[i];
-            address coverToken = coverTokenFactory.createCoverToken(asset);
+            address coverToken = coverTokenFactory.createCoverToken();
             // Initialize the cover token with this contract as owner
             ICoverToken(coverToken).initialize(
                 address(this),
@@ -115,6 +121,27 @@ contract Controller {
         // Mint cover tokens directly to the buyer
         ICoverToken(coverToken).mint(msg.sender, amount);
     }
+
+    /**
+     * @notice Claims coverage for a covered asset by burning cover tokens after slashing
+     * @param coveredAsset The address of the asset for which coverage is being claimed
+     * @param amount The amount of coverage to claim
+     * @dev Transfers covered asset and cover tokens from caller to this contract, sends base asset to caller
+     */
+    function claimCoverage(address coveredAsset, uint256 amount) external {
+        // Get cover token address for the covered asset
+        address coverToken = coveredAssetToCoverToken[coveredAsset];
+
+        // Burn cover tokens from caller's address
+        ICoverToken(coverToken).burn(msg.sender, amount);
+
+        // Transfer covered asset from caller
+        IERC20(coveredAsset).transferFrom(msg.sender, address(this), amount);
+
+        // Transfer base asset to caller
+        IERC20(baseAsset).transfer(msg.sender, amount);
+    }
+
 
     /**
      * @notice Allows the keeper to slash validators through the network middleware

@@ -23,9 +23,17 @@ contract ControllerTest is Test {
     MockERC20 public supportedAsset1;
     MockERC20 public supportedAsset2;
     address public keeper;
-    address public user;
-    address public user2;
+    address public liquidityProvider;
+    address public coverageBuyer;
     uint48 constant EPOCH_DURATION = 7 days;
+    uint256 constant INITIAL_LIQUIDITY_PROVIDER_BALANCE = 1000e18;
+    uint256 constant INITIAL_COVERAGE_BUYER_BALANCE = 1000e18;
+    uint256 constant VAULT_DEPOSIT_AMOUNT = 100e18;
+    uint256 constant COVER_AMOUNT = 50e18;
+    uint256 constant SMALL_DEPOSIT = 10e18;
+    uint256 constant LARGE_COVER_AMOUNT = 21e18;
+    uint256 constant LARGE_DEPOSIT = 200e18;
+    uint256 constant MAX_CAPACITY = 20e18;
 
     function setUp() public {
         // Deploy mock tokens
@@ -35,8 +43,8 @@ contract ControllerTest is Test {
 
         // Setup addresses
         keeper = makeAddr("keeper");
-        user = makeAddr("user");
-        user2 = makeAddr("user2");
+        liquidityProvider = makeAddr("liquidityProvider");
+        coverageBuyer = makeAddr("coverageBuyer");
         address burner = makeAddr("burner");
 
         // Deploy core contracts
@@ -73,9 +81,6 @@ contract ControllerTest is Test {
             supportedAssets
         );
 
-        // Mint tokens to users
-        baseAsset.mint(user, 1000e18);
-        baseAsset.mint(user2, 1000e18);
     }
 
     function test_deployment() public {
@@ -86,29 +91,29 @@ contract ControllerTest is Test {
         // Get vault address
         address vaultAddr = controller.vault();
         
-        // User approves and deposits base asset to vault
-        vm.startPrank(user);
-        baseAsset.approve(vaultAddr, 100e18);
-        IVault(vaultAddr).deposit(user, 100e18);
+        // Liquidity provider approves and deposits base asset to vault
+        vm.startPrank(liquidityProvider);
+        baseAsset.approve(vaultAddr, VAULT_DEPOSIT_AMOUNT);
+        IVault(vaultAddr).deposit(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
         vm.stopPrank();
 
-        // User2 buys cover for supported asset 1
-        vm.startPrank(user2);
-        baseAsset.approve(address(controller), 50e18);
-        controller.buyCover(address(supportedAsset1), 50e18);
+        // Coverage buyer buys cover for supported asset 1
+        vm.startPrank(coverageBuyer);
+        baseAsset.approve(address(controller), COVER_AMOUNT);
+        controller.buyCover(address(supportedAsset1), COVER_AMOUNT);
         vm.stopPrank();
 
         // Verify cover token balance
         address coverToken = controller.coveredAssetToCoverToken(address(supportedAsset1));
-        assertEq(IERC20(coverToken).balanceOf(user2), 50e18);
+        assertEq(IERC20(coverToken).balanceOf(coverageBuyer), COVER_AMOUNT);
     }
     function test_buyCoverRevertsWhenUnsupportedAsset() public {
-        vm.startPrank(user);
-        baseAsset.approve(address(controller), 50e18);
+        vm.startPrank(liquidityProvider);
+        baseAsset.approve(address(controller), COVER_AMOUNT);
         
         address randomAsset = makeAddr("randomAsset");
         vm.expectRevert(Controller.NoCoverTokenForAsset.selector);
-        controller.buyCover(randomAsset, 50e18);
+        controller.buyCover(randomAsset, COVER_AMOUNT);
         vm.stopPrank();
     }
 
@@ -116,24 +121,24 @@ contract ControllerTest is Test {
         // Get vault address
         address vaultAddr = controller.vault();
         
-        // User deposits small amount to vault
-        vm.startPrank(user);
-        baseAsset.approve(vaultAddr, 10e18);
-        IVault(vaultAddr).deposit(user, 10e18);
+        // Liquidity provider deposits small amount to vault
+        vm.startPrank(liquidityProvider);
+        baseAsset.approve(vaultAddr, SMALL_DEPOSIT);
+        IVault(vaultAddr).deposit(liquidityProvider, SMALL_DEPOSIT);
         vm.stopPrank();
 
         // Mock the getVaultActiveBalance call to return 10e18
         vm.mockCall(
             address(middleware),
             abi.encodeWithSelector(INetworkMiddleware.getVaultActiveBalance.selector, vaultAddr, address(controller)),
-            abi.encode(10e18)
+            abi.encode(SMALL_DEPOSIT)
         );
 
-        // User2 tries to buy more cover than vault capacity
-        vm.startPrank(user2);
-        baseAsset.approve(address(controller), 21e18);
-        vm.expectRevert(abi.encodeWithSelector(Controller.AmountExceedsCapacity.selector, 21e18, 20e18));
-        controller.buyCover(address(supportedAsset1), 21e18);
+        // Coverage buyer tries to buy more cover than vault capacity
+        vm.startPrank(coverageBuyer);
+        baseAsset.approve(address(controller), LARGE_COVER_AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(Controller.AmountExceedsCapacity.selector, LARGE_COVER_AMOUNT, MAX_CAPACITY));
+        controller.buyCover(address(supportedAsset1), LARGE_COVER_AMOUNT);
         vm.stopPrank();
     }
 
@@ -141,25 +146,25 @@ contract ControllerTest is Test {
         // Get vault address
         address vaultAddr = controller.vault();
         
-        // User deposits base asset to vault
-        vm.startPrank(user);
-        baseAsset.approve(vaultAddr, 200e18);
-        IVault(vaultAddr).deposit(user, 200e18);
+        // Liquidity provider deposits base asset to vault
+        vm.startPrank(liquidityProvider);
+        baseAsset.approve(vaultAddr, LARGE_DEPOSIT);
+        IVault(vaultAddr).deposit(liquidityProvider, LARGE_DEPOSIT);
         vm.stopPrank();
 
-        // User2 buys cover for both supported assets
-        vm.startPrank(user2);
-        baseAsset.approve(address(controller), 100e18);
+        // Coverage buyer buys cover for both supported assets
+        vm.startPrank(coverageBuyer);
+        baseAsset.approve(address(controller), VAULT_DEPOSIT_AMOUNT);
         
-        controller.buyCover(address(supportedAsset1), 50e18);
-        controller.buyCover(address(supportedAsset2), 50e18);
+        controller.buyCover(address(supportedAsset1), COVER_AMOUNT);
+        controller.buyCover(address(supportedAsset2), COVER_AMOUNT);
 
         // Verify cover token balances
         address coverToken1 = controller.coveredAssetToCoverToken(address(supportedAsset1));
         address coverToken2 = controller.coveredAssetToCoverToken(address(supportedAsset2));
         
-        assertEq(IERC20(coverToken1).balanceOf(user2), 50e18);
-        assertEq(IERC20(coverToken2).balanceOf(user2), 50e18);
+        assertEq(IERC20(coverToken1).balanceOf(coverageBuyer), COVER_AMOUNT);
+        assertEq(IERC20(coverToken2).balanceOf(coverageBuyer), COVER_AMOUNT);
         vm.stopPrank();
     }
 
@@ -167,25 +172,25 @@ function test_executeSlash() public {
         address vaultAddr = controller.vault();
         address validator = makeAddr("validator");
 
-        vm.startPrank(user);
+        vm.startPrank(liquidityProvider);
         vm.expectRevert(Controller.NotKeeper.selector);
-        controller.executeSlash(validator, 100e18, uint48(block.timestamp));
+        controller.executeSlash(validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
         vm.stopPrank();
 
         // Mock successful slash call
         vm.mockCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 100e18, uint48(block.timestamp)),
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp)),
             abi.encode()
         );
 
         vm.expectCall(
             address(middleware),
-            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, 100e18, uint48(block.timestamp))
+            abi.encodeWithSelector(INetworkMiddleware.slash.selector, vaultAddr, validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp))
         );
 
         vm.startPrank(keeper);
-        controller.executeSlash(validator, 100e18, uint48(block.timestamp));
+        controller.executeSlash(validator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
         vm.stopPrank();
 }
     function test_executeSlashWithZeroAmount() public {
@@ -206,6 +211,76 @@ function test_executeSlash() public {
 
         vm.startPrank(keeper);
         controller.executeSlash(validator, 0, uint48(block.timestamp));
+        vm.stopPrank();
+    }
+
+    function test_claimCoverage() public {
+
+        // Get vault address
+        address vaultAddr = controller.vault();
+        
+        // Mint base asset to liquidity provider for vault deposit
+        baseAsset.mint(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
+        
+        // Liquidity provider deposits base asset to vault
+        vm.startPrank(liquidityProvider);
+        baseAsset.approve(vaultAddr, VAULT_DEPOSIT_AMOUNT);
+        IVault(vaultAddr).deposit(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        // Coverage buyer buys cover for supported asset 1
+        vm.startPrank(coverageBuyer);
+        controller.buyCover(address(supportedAsset1), COVER_AMOUNT);
+        
+        // Mint some supported asset to coverage buyer for claiming
+        supportedAsset1.mint(coverageBuyer, COVER_AMOUNT);
+        
+        // Approve controller to spend tokens
+        address coverToken = controller.coveredAssetToCoverToken(address(supportedAsset1));
+        MockERC20(coverToken).approve(address(controller), COVER_AMOUNT);
+        supportedAsset1.approve(address(controller), COVER_AMOUNT);
+        vm.stopPrank();
+
+        // Mock the slash call
+        address validator = makeAddr("validator");
+        vm.mockCall(
+            address(middleware),
+            abi.encodeWithSelector(
+                NetworkMiddleware.slash.selector,
+                vaultAddr,
+                validator,
+                COVER_AMOUNT,
+                uint48(block.timestamp)
+            ),
+            abi.encode()
+        );
+
+        // Mock the vault's onSlash to transfer base asset to controller
+        vm.mockCall(
+            vaultAddr,
+            abi.encodeWithSelector(
+                IVault.onSlash.selector,
+                COVER_AMOUNT,
+                uint48(block.timestamp)
+            ),
+            abi.encode(COVER_AMOUNT)  // Return slashed amount
+        );
+
+        // Keeper executes slash which triggers vault to send funds to controller
+        vm.prank(keeper);
+        controller.executeSlash(validator, COVER_AMOUNT, uint48(block.timestamp));
+
+        // Transfer base asset to controller (simulating vault's behavior)
+        baseAsset.mint(address(controller), COVER_AMOUNT);
+
+        // Coverage buyer claims coverage
+        vm.startPrank(coverageBuyer);
+        controller.claimCoverage(address(supportedAsset1), COVER_AMOUNT);
+
+        // Verify balances after claim
+        assertEq(MockERC20(coverToken).balanceOf(coverageBuyer), 0); // Cover tokens burned
+        assertEq(supportedAsset1.balanceOf(coverageBuyer), 0); // Supported asset transferred
+        assertEq(baseAsset.balanceOf(coverageBuyer), COVER_AMOUNT); // Base asset received
         vm.stopPrank();
     }
 
