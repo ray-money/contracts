@@ -33,8 +33,8 @@ contract Controller {
     /// @notice The keeper contract instance
     address public immutable keeper;
 
-    /// @notice The base asset (token) used for coverage
-    address public baseAsset;
+    /// @notice The collateral asset (token) used for coverage
+    address public collateralAsset;
 
     bool public initialized;
 
@@ -61,19 +61,19 @@ contract Controller {
     }
 
     function initialize(
-        address _baseAsset,
+        address _collateralAsset,
         uint48 _epochDuration,
         address _defaultAdmin,
         address[] memory _supportedAssets
     ) external {
         if (initialized) revert AlreadyInitialized();
 
-        // Store base asset
-        baseAsset = _baseAsset;
+        // Store collateral asset
+        collateralAsset = _collateralAsset;
 
         // Create vault through middleware
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
-            _baseAsset,
+            _collateralAsset,
             _epochDuration,
             _defaultAdmin
         );
@@ -129,7 +129,7 @@ contract Controller {
      * @notice Claims coverage for a covered asset by burning cover tokens after slashing
      * @param coveredAsset The address of the asset for which coverage is being claimed
      * @param amount The amount of coverage to claim
-     * @dev Transfers covered asset and cover tokens from caller to this contract, sends base asset to caller
+     * @dev Transfers covered asset and cover tokens from caller to this contract, sends collateral asset to caller
      */
     function claimCoverage(address coveredAsset, uint256 amount) external {
         if (amount == 0) revert InvalidAmount();
@@ -143,8 +143,8 @@ contract Controller {
         // Transfer covered asset from caller
         IERC20(coveredAsset).transferFrom(msg.sender, address(this), amount);
 
-        // Transfer base asset to caller
-        IERC20(baseAsset).transfer(msg.sender, amount);
+        // Transfer collateral asset to caller
+        IERC20(collateralAsset).transfer(msg.sender, amount);
     }
 
 

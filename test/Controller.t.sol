@@ -19,7 +19,7 @@ contract ControllerTest is Test {
     Controller public controller;
     CoverTokenFactory public factory;
     NetworkMiddleware public middleware;
-    MockERC20 public baseAsset;
+    MockERC20 public collateralAsset;
     MockERC20 public supportedAsset1;
     MockERC20 public supportedAsset2;
     address public keeper;
@@ -37,7 +37,7 @@ contract ControllerTest is Test {
 
     function setUp() public {
         // Deploy mock tokens
-        baseAsset = new MockERC20("Base Asset", "BASE");
+        collateralAsset = new MockERC20("Collateral Asset", "BASE");
         supportedAsset1 = new MockERC20("Supported Asset 1", "SUP1");
         supportedAsset2 = new MockERC20("Supported Asset 2", "SUP2");
 
@@ -75,7 +75,7 @@ contract ControllerTest is Test {
         middleware.transferOwnership(address(controller));
     
         controller.initialize(
-            address(baseAsset),
+            address(collateralAsset),
             EPOCH_DURATION,
             address(this),
             supportedAssets
@@ -88,7 +88,7 @@ contract ControllerTest is Test {
         
         // Verify initial state
         assertEq(controller.keeper(), keeper);
-        assertEq(controller.baseAsset(), address(baseAsset));
+        assertEq(controller.collateralAsset(), address(collateralAsset));
         assertTrue(controller.isSupportedAsset(address(supportedAsset1)));
         assertTrue(controller.isSupportedAsset(address(supportedAsset2)));
         assertEq(address(controller.coverTokenFactory()), address(factory));
@@ -99,15 +99,15 @@ contract ControllerTest is Test {
         // Get vault address
         address vaultAddr = controller.vault();
         
-        // Liquidity provider approves and deposits base asset to vault
+        // Liquidity provider approves and deposits collateral asset to vault
         vm.startPrank(liquidityProvider);
-        baseAsset.approve(vaultAddr, VAULT_DEPOSIT_AMOUNT);
+        collateralAsset.approve(vaultAddr, VAULT_DEPOSIT_AMOUNT);
         IVault(vaultAddr).deposit(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
         vm.stopPrank();
 
         // Coverage buyer buys cover for supported asset 1
         vm.startPrank(coverageBuyer);
-        baseAsset.approve(address(controller), COVER_AMOUNT);
+        collateralAsset.approve(address(controller), COVER_AMOUNT);
         controller.buyCover(address(supportedAsset1), COVER_AMOUNT);
         vm.stopPrank();
 
@@ -118,7 +118,7 @@ contract ControllerTest is Test {
 
     function test_buyCoverRevertsWhenUnsupportedAsset() public {
         vm.startPrank(liquidityProvider);
-        baseAsset.approve(address(controller), COVER_AMOUNT);
+        collateralAsset.approve(address(controller), COVER_AMOUNT);
         
         address randomAsset = makeAddr("randomAsset");
         vm.expectRevert(Controller.NoCoverTokenForAsset.selector);
@@ -132,7 +132,7 @@ contract ControllerTest is Test {
         
         // Liquidity provider deposits small amount to vault
         vm.startPrank(liquidityProvider);
-        baseAsset.approve(vaultAddr, SMALL_DEPOSIT);
+        collateralAsset.approve(vaultAddr, SMALL_DEPOSIT);
         IVault(vaultAddr).deposit(liquidityProvider, SMALL_DEPOSIT);
         vm.stopPrank();
 
@@ -145,7 +145,7 @@ contract ControllerTest is Test {
 
         // Coverage buyer tries to buy more cover than vault capacity
         vm.startPrank(coverageBuyer);
-        baseAsset.approve(address(controller), LARGE_COVER_AMOUNT);
+        collateralAsset.approve(address(controller), LARGE_COVER_AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(Controller.AmountExceedsCapacity.selector, LARGE_COVER_AMOUNT, MAX_CAPACITY));
         controller.buyCover(address(supportedAsset1), LARGE_COVER_AMOUNT);
         vm.stopPrank();
@@ -155,15 +155,15 @@ contract ControllerTest is Test {
         // Get vault address
         address vaultAddr = controller.vault();
         
-        // Liquidity provider deposits base asset to vault
+        // Liquidity provider deposits collateral asset to vault
         vm.startPrank(liquidityProvider);
-        baseAsset.approve(vaultAddr, LARGE_DEPOSIT);
+        collateralAsset.approve(vaultAddr, LARGE_DEPOSIT);
         IVault(vaultAddr).deposit(liquidityProvider, LARGE_DEPOSIT);
         vm.stopPrank();
 
         // Coverage buyer buys cover for both supported assets
         vm.startPrank(coverageBuyer);
-        baseAsset.approve(address(controller), VAULT_DEPOSIT_AMOUNT);
+        collateralAsset.approve(address(controller), VAULT_DEPOSIT_AMOUNT);
         
         controller.buyCover(address(supportedAsset1), COVER_AMOUNT);
         controller.buyCover(address(supportedAsset2), COVER_AMOUNT);
@@ -228,12 +228,12 @@ contract ControllerTest is Test {
         // Get vault address
         address vaultAddr = controller.vault();
         
-        // Mint base asset to liquidity provider for vault deposit
-        baseAsset.mint(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
+        // Mint collateral asset to liquidity provider for vault deposit
+        collateralAsset.mint(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
         
-        // Liquidity provider deposits base asset to vault
+        // Liquidity provider deposits collateral asset to vault
         vm.startPrank(liquidityProvider);
-        baseAsset.approve(vaultAddr, VAULT_DEPOSIT_AMOUNT);
+        collateralAsset.approve(vaultAddr, VAULT_DEPOSIT_AMOUNT);
         IVault(vaultAddr).deposit(liquidityProvider, VAULT_DEPOSIT_AMOUNT);
         vm.stopPrank();
 
@@ -264,7 +264,7 @@ contract ControllerTest is Test {
             abi.encode()
         );
 
-        // Mock the vault's onSlash to transfer base asset to controller
+        // Mock the vault's onSlash to transfer collateral asset to controller
         vm.mockCall(
             vaultAddr,
             abi.encodeWithSelector(
@@ -279,8 +279,8 @@ contract ControllerTest is Test {
         vm.prank(keeper);
         controller.executeSlash(validator, COVER_AMOUNT, uint48(block.timestamp));
 
-        // Transfer base asset to controller (simulating vault's behavior)
-        baseAsset.mint(address(controller), COVER_AMOUNT);
+        // Transfer collateral asset to controller (simulating vault's behavior)
+        collateralAsset.mint(address(controller), COVER_AMOUNT);
 
         // Coverage buyer claims coverage
         vm.startPrank(coverageBuyer);
@@ -289,7 +289,7 @@ contract ControllerTest is Test {
         // Verify balances after claim
         assertEq(MockERC20(coverToken).balanceOf(coverageBuyer), 0); // Cover tokens burned
         assertEq(supportedAsset1.balanceOf(coverageBuyer), 0); // Supported asset transferred
-        assertEq(baseAsset.balanceOf(coverageBuyer), COVER_AMOUNT); // Base asset received
+        assertEq(collateralAsset.balanceOf(coverageBuyer), COVER_AMOUNT); // Collateral asset received
         vm.stopPrank();
     }
 
