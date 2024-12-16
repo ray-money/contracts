@@ -11,8 +11,13 @@ contract Markets {
     //////////////////////////////////////////////////////////////*/
 
     struct Market {
+        // Ledger for tracking coverage
         address coverToken;
+
+        // Oracle for deciding how much of the coverage is eligible for claim
         address claimOracle;
+
+        // Ledger for tracking capacity provisioning
         address allocationToken;
     }
 
@@ -30,6 +35,7 @@ contract Markets {
     /*//////////////////////////////////////////////////////////////
                                  Events
     //////////////////////////////////////////////////////////////*/
+
     event MarketCreated(address indexed coverToken, address indexed claimOracle, address indexed allocationToken); 
 
     /*//////////////////////////////////////////////////////////////
