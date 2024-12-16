@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import {ICoverTokenFactory} from "./interfaces/ICoverTokenFactory.sol";
+interface CoverTokenFactoryLike {
+    function createCoverToken() external returns (address);
+}
 
 contract Markets {
     /*//////////////////////////////////////////////////////////////
@@ -44,7 +46,7 @@ contract Markets {
     /// much of the coverage that the cover tokens represent is eligible for claim.
     /// E.g. There is 100 cover tokens representing 100 wstETH of coverage, 30% is claimable.
     function createMarket(address _claimOracle, address _allocationToken) external returns (address _coverToken) {
-        _coverToken = ICoverTokenFactory(coverTokenFactory).createCoverToken();
+        _coverToken = CoverTokenFactoryLike(coverTokenFactory).createCoverToken();
         markets[marketCount++] = Market({
             claimOracle: _claimOracle,
             coverToken: _coverToken,
