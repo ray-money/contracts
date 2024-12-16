@@ -10,8 +10,11 @@ contract Strategies {
     //////////////////////////////////////////////////////////////*/
     
     struct Strategy {
-        /// @notice Vault for holding the strategy's principal and rewards
+        /// @notice Vault for holding the custodian tokens and rewards
         address vault;
+        address admin;
+        address custodian;
+        address underlying;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -30,12 +33,16 @@ contract Strategies {
     //////////////////////////////////////////////////////////////*/
 
     error ERR_SIZE();
+    error ERR_AUTH();
 
     constructor(address _WETH) {
         WETH = _WETH;
     }
 
     function createStrategy(
+        address _custodian,
+        address _underlying,
+        address _admin,
         address[] calldata _rewardTokens
     ) external {
         uint256 _strategyID = strategyCount++;
@@ -50,6 +57,15 @@ contract Strategies {
             _rewardTokens
         ));
 
+        // Write to storage
         _strategy.vault = _strategyVault;
+        _strategy.custodian = _custodian;
+        _strategy.underlying = _underlying;
+        _strategy.admin = _admin;
     }
+
+    function changeAdmin(uint256 _strategyID, address _admin) external {
+        if (msg.sender != strategies[_strategyID].admin) revert ERR_AUTH();
+        strategies[_strategyID].admin = _admin;
+    }   
 }
