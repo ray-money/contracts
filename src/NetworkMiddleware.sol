@@ -11,7 +11,7 @@ import {IVetoSlasher} from "lib/core/src/interfaces/slasher/IVetoSlasher.sol";
 import {INetworkRestakeDelegator} from "lib/core/src/interfaces/delegator/INetworkRestakeDelegator.sol";
 import {IDefaultStakerRewards} from "lib/rewards/src/interfaces/defaultStakerRewards/IDefaultStakerRewards.sol";
 import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperatorRewards/IDefaultOperatorRewards.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title Network

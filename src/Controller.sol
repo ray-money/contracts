@@ -96,7 +96,7 @@ contract Controller {
 
     function buyCover(address coveredAsset, uint256 amount) external {
         if (amount == 0) revert InvalidAmount();
-        
+
         address coverToken = coveredAssetToCoverToken[coveredAsset];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
@@ -107,9 +107,9 @@ contract Controller {
         emit CoverBought(msg.sender, coveredAsset, amount);
     }
 
-    function claimCoverage(address coveredAsset, uint256 amount) external {
+    function claimCover(address coveredAsset, uint256 amount) external {
         if (amount == 0) revert InvalidAmount();
-        
+
         address coverToken = coveredAssetToCoverToken[coveredAsset];
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
@@ -158,7 +158,7 @@ contract Controller {
     function _calculateCapacity() internal view returns (uint256) {
         uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
         uint256 numSupportedAssets = supportedAssets.length();
-        
+
         uint256 totalCoverTokenSupply;
         for (uint256 i = 0; i < numSupportedAssets; i++) {
             address asset = supportedAssets.at(i);
@@ -181,14 +181,14 @@ contract Controller {
         for (uint256 i = 0; i < _supportedAssets.length; i++) {
             address asset = _supportedAssets[i];
             address coverToken = coverTokenFactory.createCoverToken();
-            
+
             ICoverToken(coverToken).initialize(
                 address(this),
                 asset,
                 string(abi.encodePacked("Ray ", IERC20Metadata(asset).name())),
                 string(abi.encodePacked("r", IERC20Metadata(asset).symbol()))
             );
-            
+
             coveredAssetToCoverToken[asset] = coverToken;
         }
     }

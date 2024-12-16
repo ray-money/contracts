@@ -202,7 +202,7 @@ contract ControllerTest is Test {
         controller.executeSlash(operator, VAULT_DEPOSIT_AMOUNT, uint48(block.timestamp));
     }
 
-    function test_claimCoverage() public {
+    function test_claimCover() public {
         address vaultAddr = controller.vault();
         address operator = makeAddr("operator");
         
@@ -215,7 +215,7 @@ contract ControllerTest is Test {
         collateralAsset.mint(address(controller), COVER_AMOUNT);
 
         vm.startPrank(coverageBuyer);
-        controller.claimCoverage(address(supportedAsset1), COVER_AMOUNT);
+        controller.claimCover(address(supportedAsset1), COVER_AMOUNT);
 
         _verifyClaimBalances();
         vm.stopPrank();
@@ -228,10 +228,10 @@ contract ControllerTest is Test {
         vm.stopPrank();
     }
 
-    function test_claimCoverageRevertsWhenZeroAmount() public {
+    function test_claimCoverRevertsWhenZeroAmount() public {
         vm.startPrank(coverageBuyer);
         vm.expectRevert(Controller.InvalidAmount.selector);
-        controller.claimCoverage(address(supportedAsset1), 0);
+        controller.claimCover(address(supportedAsset1), 0);
         vm.stopPrank();
     }
 
@@ -273,7 +273,7 @@ contract ControllerTest is Test {
         vm.stopPrank();
     }
 
-    function test_claimCoverageRevertsWhenNoCoverToken() public {
+    function test_claimCoverRevertsWhenNoCoverToken() public {
         address randomAsset = makeAddr("randomAsset");
         
         // Verify the asset is not supported and has no cover token
@@ -282,7 +282,7 @@ contract ControllerTest is Test {
         
         vm.startPrank(coverageBuyer);
         vm.expectRevert(Controller.NoCoverTokenForAsset.selector);
-        controller.claimCoverage(randomAsset, COVER_AMOUNT);
+        controller.claimCover(randomAsset, COVER_AMOUNT);
         vm.stopPrank();
     }
 
