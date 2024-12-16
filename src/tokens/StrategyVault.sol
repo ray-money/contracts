@@ -5,10 +5,14 @@ pragma solidity >=0.8.0;
 import {ERC4626} from "./ERC4626.sol";
 import {ERC20} from "./ERC20.sol";
 
+interface RewardLike {
+    function withdraw(uint256 amount, address to) external;
+}
+
 /// @notice A modified ERC4626 that has admin whose privilage is limited to making
 /// arbitrary calls to reward contract objects for harvesting reward.
-/// @notice This vault is intended to be used to accept a custodian asset and let admin
-/// harvest.
+/// @notice This vault is intended to be used to accept a custodian  (e.g. Symbiotic)
+/// and let admin harvest.
 /// @notice This vault lets depositors withdraw not only principal but also rewards, 
 /// on every withdrawal.
 contract StrategyVault is ERC4626 {
@@ -34,12 +38,15 @@ contract StrategyVault is ERC4626 {
     }
     
     function beforeWithdraw(uint256 assets, uint256) internal override {
-        // Withdraw on behalf of withdrawer
+        // Withdraw rewards on behalf of withdrawer
         for (uint256 i = 0; i < rewards.length; i++) {  
             (bool success, ) = rewards[i].call(
-                abi.encodeWithSignature("withdraw(uint256,address)", assets, msg.sender)
-            );
-            require(success, "Call failed");
+                abi.encodeWithSelector(
+                    RewardLike.withdraw.selector,
+                    assets,
+                    msg.sender
+            ));
+            if (!success) revert ERR_CALL();
         }
     }
 
