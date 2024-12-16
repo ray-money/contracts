@@ -1,1 +1,2 @@
 Claim oracle: oracle that decides how much of the coverage is eligible for claim
+Protocol / Ray Strategy Vault: Vault for holding the strategy's principal and rewards, and tracking the tranches' ownership of the strategy.
