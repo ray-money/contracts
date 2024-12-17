@@ -4,19 +4,15 @@ pragma solidity >=0.8.0;
 import {StrategyVault} from "./tokens/StrategyVault.sol";
 import {ERC20} from "./tokens/ERC20.sol";
 
-contract Strategies {
-    /*//////////////////////////////////////////////////////////////
-                                 Data Structures
-    //////////////////////////////////////////////////////////////*/
-    
-    struct Strategy {
-        /// @notice Vault for holding the custodian tokens and rewards
-        address vault;
-        address admin;
-        address custodian;
-        address underlying;
-    }
+struct Strategy {
+    /// @notice Vault for holding the custodian tokens and rewards
+    address vault;
+    address admin;
+    address custodian;
+    address underlying;
+}
 
+contract Strategies {
     /*//////////////////////////////////////////////////////////////
                                  States
     //////////////////////////////////////////////////////////////*/

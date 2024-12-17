@@ -6,7 +6,7 @@ pragma solidity >=0.8.0;
 contract Controller {
     function provideLiquidity(
         address _custodian,
-        address _strategy, 
+        uint256 _strategyID, 
         uint256 _underlyingAmount
     ) external {
         // TODO: Implement
@@ -15,6 +15,7 @@ contract Controller {
         // 3. The strategy holds the receipt of the custodian.
         // 4. LP receives shares of the strategy vault. Shares won't be redeemable for the underlying asset for some agreed upon amount of time.
         // 5. Admin of the strategy vault can claim rewards on behalf of the LPs. 
+        
     }
 
     function withdrawLiquidity(address strategy, uint256 amount) external {
