@@ -103,6 +103,7 @@ contract Controller {
         uint256 maxCoverTokenAmount = _calculateCapacity();
         if (amount > maxCoverTokenAmount) revert AmountExceedsCapacity(amount, maxCoverTokenAmount);
 
+        IERC20(coveredAsset).transferFrom(msg.sender, address(this), amount);
         ICoverToken(coverToken).mint(msg.sender, amount);
         emit CoverBought(msg.sender, coveredAsset, amount);
     }
@@ -114,11 +115,53 @@ contract Controller {
         if (coverToken == address(0)) revert NoCoverTokenForAsset();
 
         ICoverToken(coverToken).burn(msg.sender, amount);
-        IERC20(coveredAsset).transferFrom(msg.sender, address(this), amount);
+
         IERC20(collateralAsset).transfer(msg.sender, amount);
 
         emit CoverageClaimed(msg.sender, coveredAsset, amount);
     }
+//////////////////////////////// WIP ////////////////////////////////
+
+    struct RebaseShares {
+        mapping(address => uint256) buyerShares;
+        mapping(address => uint256) lpShares;
+    }
+
+    RebaseShares public rebaseShares;
+
+    function calculateRebase() external onlyKeeper {
+        uint256 numSupportedAssets = supportedAssets.length();
+        
+        // Process each supported asset
+        for (uint256 i = 0; i < numSupportedAssets; i++) {
+            address coveredAsset = supportedAssets.at(i);
+            address coverToken = coveredAssetToCoverToken[coveredAsset];
+            
+            if (coverToken != address(0)) {
+                uint256 currentBalance = IERC20(coveredAsset).balanceOf(address(this));
+                uint256 coverTokenSupply = IERC20(coverToken).totalSupply();
+
+                // Only rebase if we have excess balance
+                if (currentBalance > coverTokenSupply) {
+                    uint256 excessAmount = currentBalance - coverTokenSupply;
+                    uint256 buyerShare = (excessAmount * 80) / 100; // 80% for cover buyers
+                    uint256 lpShare = excessAmount - buyerShare; // Remaining 20% for LPs
+
+                    // Update state variables
+                    rebaseShares.buyerShares[coveredAsset] = buyerShare;
+                    rebaseShares.lpShares[coveredAsset] = lpShare;
+                    
+                    emit RebaseCalculated(coveredAsset, buyerShare, lpShare);
+                }
+            }
+        }
+    }
+
+    event RebaseCalculated(address indexed asset, uint256 buyerShare, uint256 lpShare);
+
+
+//////////////////////////////////////////////////////////////////////
+
 
     function executeSlash(
         address operator,
@@ -154,6 +197,10 @@ contract Controller {
     }
 
     // ============ Internal Functions ============
+
+    function _epochAt(uint48 timestamp) internal view returns (uint256) {
+        return IVault(vault).epochAt(timestamp);
+    }
 
     function _calculateCapacity() internal view returns (uint256) {
         uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
