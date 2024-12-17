@@ -1,0 +1,2 @@
+Claim oracle: oracle that decides whether a slash and claim is valid and how much the payout should be.
+Capacity token: token that tracks how much capacity has been provisioned for a market and by whom.
