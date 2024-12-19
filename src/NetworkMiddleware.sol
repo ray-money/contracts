@@ -2,56 +2,21 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-
-/** 
- * @notice INetworkRegistry - Manages the registration and tracking of networks in the system
- * Handles network onboarding, verification, and maintenance of network status
- */
 import {INetworkRegistry} from "lib/core/src/interfaces/INetworkRegistry.sol";
-
-/** 
- * @notice INetworkMiddlewareService - Acts as an intermediary service layer between different components
- * Handles communication and coordination between various network parts
- * Manages middleware settings and configurations
- */
 import {INetworkMiddlewareService} from "lib/core/src/interfaces/service/INetworkMiddlewareService.sol";
-
-/** 
- * @notice IVault - Manages the storage and handling of staked assets
- * Responsible for deposit/withdrawal functionality
- * Ensures secure custody of tokens or assets
- */
 import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
-
-/** 
- * @notice IVaultConfigurator - Handles vault configuration and setup
- * Responsible for creating and initializing new vaults with specified parameters
- * Manages vault deployment with associated delegator and slasher contracts
- */
 import {IVaultConfigurator} from "lib/core/src/interfaces/IVaultConfigurator.sol";
-
-/** 
- * @notice ISlasher - Handles punishment mechanisms for malicious or misbehaving validators/operators
- * @notice IVetoSlasher - Provides mechanism to prevent or override slashing actions for governance/safety
- */
 import {ISlasher} from "lib/core/src/interfaces/slasher/ISlasher.sol";
 import {IVetoSlasher} from "lib/core/src/interfaces/slasher/IVetoSlasher.sol";
-
-/** 
- * @notice INetworkRestakeDelegator - Manages the delegation of staked assets
- * Handles restaking mechanism where staked assets can be redirected or re-delegated
- * Part of liquid staking/delegation system
- */
 import {INetworkRestakeDelegator} from "lib/core/src/interfaces/delegator/INetworkRestakeDelegator.sol";
-
-//@notice IDefaultStakerRewards - Defines how rewards are distributed to users who stake assets
-//@notice IDefaultOperatorRewards - Defines how rewards are distributed to operators/validators
 import {IDefaultStakerRewards} from "lib/rewards/src/interfaces/defaultStakerRewards/IDefaultStakerRewards.sol";
 import {IDefaultOperatorRewards} from "lib/rewards/src/interfaces/defaultOperatorRewards/IDefaultOperatorRewards.sol";
-
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-
+/**
+ * @title Network
+ * @notice Simple contract for registering networks and setting middleware
+ */
 contract Network {
     constructor(
         INetworkRegistry networkRegistry,
@@ -62,42 +27,41 @@ contract Network {
     }
 }
 
+/**
+ * @title NetworkMiddleware
+ * @notice Manages network operations including vault management, staking, slashing and rewards
+ * @dev Acts as intermediary between network components and core functionality
+ */
 contract NetworkMiddleware is Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    /// @notice VaultConfigurator reference
+    // ============ Storage ============
+
     IVaultConfigurator public immutable vaultConfigurator;
-    /// @notice Burner address
-    address public burner;
-    /// @notice Network address
-    address public network;
-
-    /// @notice Registry contract for managing network registration and status
     INetworkRegistry public immutable networkRegistry;
-    
-    /// @notice Service contract for coordinating network middleware functionality
     INetworkMiddlewareService public immutable middlewareService;
+    IDefaultOperatorRewards public operatorRewards;
+    
+    address public burner;
+    address public network;
+    EnumerableSet.AddressSet private vaults;
 
-    error UnauthorizedVault(address vault);
-    error VaultAlreadyAuthorized(address vault);
-    error VaultNotAuthorized(address vault);
-    error InvalidBurnerAddress(address burner);
+    // ============ Events ============
 
     event NetworkDeployed(address network);
     event VaultAuthorized(address vault);
     event VaultDeauthorized(address vault);
     event BurnerUpdated(address burner);
 
-    /// @notice Set of authorized vaults
-    EnumerableSet.AddressSet private vaults;
+    // ============ Errors ============
 
-    /// @notice Contract for managing operator reward distributions
-    IDefaultOperatorRewards public operatorRewards;
+    error UnauthorizedVault(address vault);
+    error VaultAlreadyAuthorized(address vault);
+    error VaultNotAuthorized(address vault);
+    error InvalidBurnerAddress(address burner);
 
-    /// @notice Initializes the middleware contract
-    /// @param _operatorRewards Address of the operator rewards contract
-    /// @param _vaultConfigurator Address of the vault configurator contract
-    /// @param _burner Address of the burner contract
+    // ============ Constructor ============
+
     constructor(
         IDefaultOperatorRewards _operatorRewards,
         IVaultConfigurator _vaultConfigurator,
@@ -109,25 +73,15 @@ contract NetworkMiddleware is Ownable {
         burner = _burner;
     }
 
-    /**
-     * @notice Modifier to restrict access to authorized vaults only
-     * @param vault The address of the vault to check authorization for
-     * @dev Reverts with UnauthorizedVault if the vault is not in the authorized vaults set
-     */
+    // ============ Modifiers ============
+
     modifier onlyAuthorized(address vault) {
         if (!vaults.contains(vault)) revert UnauthorizedVault(vault);
         _;
     }
 
-    /**
-     * @notice Creates and authorizes a new vault using VaultConfigurator
-     * @param collateral The collateral token address
-     * @param epochDuration The epoch duration
-     * @param defaultAdmin The default admin address
-     * @return vault The address of the created vault
-     * @return delegator The address of the created delegator
-     * @return slasher The address of the created slasher
-     */
+    // ============ External Functions ============
+
     function createAndAuthorizeVault(
         address collateral,
         uint48 epochDuration,
@@ -137,36 +91,21 @@ contract NetworkMiddleware is Ownable {
         address delegator,
         address slasher
     ) {
-        // Encode vault initialization parameters
-        bytes memory vaultParams = abi.encode(
-            collateral,
-            burner, 
-            epochDuration,
-            false, // depositWhitelist
-            false, // isDepositLimit
-            0, // depositLimit
-            defaultAdmin, // defaultAdminRoleHolder
-            defaultAdmin, // depositWhitelistSetRoleHolder
-            defaultAdmin, // depositorWhitelistRoleHolder
-            defaultAdmin, // isDepositLimitSetRoleHolder
-            defaultAdmin // depositLimitSetRoleHolder
-        );
+        bytes memory vaultParams = _encodeVaultParams(collateral, epochDuration, defaultAdmin);
 
-        // Create vault using VaultConfigurator
         (vault, delegator, slasher) = vaultConfigurator.create(
             IVaultConfigurator.InitParams({
-                version: 1, //TODO; add versioning system
-                owner: address(this), //TODO; confirm owner, maybe pass Controller as owner
+                version: 1,
+                owner: address(this),
                 vaultParams: vaultParams,
-                delegatorIndex: 0, // Use appropriate index
-                delegatorParams: "", // Add delegator params if needed
+                delegatorIndex: 0,
+                delegatorParams: "",
                 withSlasher: true,
-                slasherIndex: 0, // Use appropriate index
-                slasherParams: "" // Add slasher params if needed
+                slasherIndex: 0,
+                slasherParams: ""
             })
         );
 
-        // Add to authorized vaults
         if (!vaults.add(vault)) {
             revert VaultAlreadyAuthorized(vault);
         }
@@ -176,22 +115,12 @@ contract NetworkMiddleware is Ownable {
         return (vault, delegator, slasher);
     }
 
-    /**
-     * @notice Updates the burner address
-     * @param _burner The new burner address
-     */
     function updateBurner(address _burner) external onlyOwner {
         if (_burner == address(0)) revert InvalidBurnerAddress(_burner);
         burner = _burner;
         emit BurnerUpdated(_burner);
     }
 
-    /**
-     * @notice Removes a vault from the set of authorized vaults
-     * @param vault The address of the vault to deauthorize
-     * @dev Only callable by contract owner
-     * @dev Reverts with VaultNotAuthorized if vault is not currently authorized
-     */
     function deauthorizeVault(address vault) external onlyOwner {
         if (!vaults.contains(vault)) {
             revert VaultNotAuthorized(vault);
@@ -201,24 +130,12 @@ contract NetworkMiddleware is Ownable {
         emit VaultDeauthorized(vault);
     }
 
-    /**
-     * @notice Deploys a new Network contract instance
-     * @return network The address of the newly deployed Network contract
-     * @dev Creates new Network with networkRegistry and middlewareService
-     */
-    function deployNetwork() external returns (address network) {
+    function deployNetwork() external returns (address) {
         network = address(new Network(networkRegistry, middlewareService));
         emit NetworkDeployed(network);
-
         return network;
     }
 
-    /**
-    * @notice Gets the active balance of an account in a vault
-    * @param vault The vault address
-    * @param account The account to check
-    * @return The active balance
-    */
     function getVaultActiveBalance(
         address vault,
         address account
@@ -226,57 +143,35 @@ contract NetworkMiddleware is Ownable {
         return IVault(vault).activeBalanceOf(account);
     }
 
-    /**
-     * @notice Allocates stake to a validator through a vault
-     * @param vault The vault address to allocate stake through
-     * @param validator The validator address to allocate stake to
-     * @param amount The amount of stake to allocate
-     * @dev Only callable by owner and for authorized vaults
-     */
     function allocateStake(
         address vault,
-        address validator,
+        address operator,
         uint256 amount
     ) external onlyOwner onlyAuthorized(vault) {
         INetworkRestakeDelegator(IVault(vault).delegator())
             .setOperatorNetworkShares(
-                bytes32(bytes20(address(this))),  // Using this contract's address instead
-                validator,
+                bytes32(bytes20(address(this))),
+                operator,
                 amount
             );
     }
 
-    /**
-     * @notice Slashes a validator's stake through a vault
-     * @param vault The vault address to slash through
-     * @param validator The validator address to slash
-     * @param amount The amount to slash
-     * @param timestamp The timestamp of the slashing event
-     * @dev Only callable by owner and for authorized vaults
-     */
     function slash(
         address vault,
-        address validator,
+        address operator,
         uint256 amount,
         uint48 timestamp
     ) external onlyOwner onlyAuthorized(vault) {
         bytes32 networkId = bytes32(bytes20(network));
         ISlasher(IVault(vault).slasher()).slash(
             networkId,
-            validator,
+            operator,
             amount,
             timestamp,
             new bytes(0)
         );
     }
 
-    /**
-     * @notice Distributes rewards to stakers through the staker rewards contract
-     * @param stakerRewards The staker rewards contract to distribute through
-     * @param token The token address to distribute as rewards
-     * @param amount The amount of tokens to distribute
-     * @dev Only callable by owner and for authorized vaults
-     */
     function rewardStakers(
         IDefaultStakerRewards stakerRewards,
         address token,
@@ -285,18 +180,33 @@ contract NetworkMiddleware is Ownable {
         stakerRewards.distributeRewards(network, token, amount, bytes(""));
     }
 
-    /**
-     * @notice Distributes rewards to operators
-     * @param token The token address to distribute as rewards
-     * @param amount The amount of tokens to distribute
-     * @param root The merkle root for reward distribution
-     * @dev Only callable by owner
-     */
     function rewardOperators(
         address token,
         uint256 amount,
         bytes32 root
     ) external onlyOwner {
         operatorRewards.distributeRewards(network, token, amount, root);
+    }
+
+    // ============ Internal Functions ============
+
+    function _encodeVaultParams(
+        address collateral,
+        uint48 epochDuration,
+        address defaultAdmin
+    ) internal view returns (bytes memory) {
+        return abi.encode(
+            collateral,
+            burner,
+            epochDuration,
+            false, // depositWhitelist
+            false, // isDepositLimit
+            0, // depositLimit
+            defaultAdmin, // defaultAdminRoleHolder
+            defaultAdmin, // depositWhitelistSetRoleHolder
+            defaultAdmin, // depositorWhitelistRoleHolder
+            defaultAdmin, // isDepositLimitSetRoleHolder
+            defaultAdmin  // depositLimitSetRoleHolder
+        );
     }
 }
