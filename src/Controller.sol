@@ -129,6 +129,9 @@ contract Controller {
 
     RebaseShares public rebaseShares;
 
+    // Add state variable to track accumulated LP rewards
+    mapping(address => uint256) public accumulatedLpRewards;
+
     function calculateRebase() external onlyKeeper {
         uint256 numSupportedAssets = supportedAssets.length();
         
@@ -150,7 +153,26 @@ contract Controller {
                     // Update state variables
                     rebaseShares.buyerShares[coveredAsset] = buyerShare;
                     rebaseShares.lpShares[coveredAsset] = lpShare;
-                    
+
+                    // Accumulate LP rewards
+                    accumulatedLpRewards[coveredAsset] += lpShare;
+
+                    // If we have accumulated enough rewards, distribute them
+                    if (accumulatedLpRewards[coveredAsset] >= MINIMUM_REWARD_THRESHOLD) {
+                        // Create merkle root for LP rewards distribution
+                        bytes32 merkleRoot = _generateMerkleRoot(coveredAsset, accumulatedLpRewards[coveredAsset]);
+                        
+                        // Distribute rewards through operator rewards contract
+                        networkMiddleware.rewardOperators(
+                            coveredAsset,
+                            accumulatedLpRewards[coveredAsset],
+                            merkleRoot
+                        );
+
+                        // Reset accumulated rewards after distribution
+                        accumulatedLpRewards[coveredAsset] = 0;
+                    }
+
                     emit RebaseCalculated(coveredAsset, buyerShare, lpShare);
                 }
             }
@@ -159,6 +181,58 @@ contract Controller {
 
     event RebaseCalculated(address indexed asset, uint256 buyerShare, uint256 lpShare);
 
+    function _generateMerkleRoot(
+        address asset,
+        uint256 totalRewards
+    ) internal view returns (bytes32) {
+        uint256 numSupportedAssets = supportedAssets.length();
+        uint256 totalStake;
+        
+        // Calculate total stake across all operators
+        for (uint256 i = 0; i < numSupportedAssets; i++) {
+            address operator = supportedAssets.at(i);
+            totalStake += networkMiddleware.getVaultActiveBalance(vault, operator);
+        }
+
+        // Build merkle tree leaves
+        bytes32[] memory leaves = new bytes32[](numSupportedAssets);
+        for (uint256 i = 0; i < numSupportedAssets; i++) {
+            address operator = supportedAssets.at(i);
+            uint256 operatorStake = networkMiddleware.getVaultActiveBalance(vault, operator);
+            
+            // Calculate operator's share of rewards based on stake ratio
+            uint256 operatorRewards = totalStake > 0 
+                ? (totalRewards * operatorStake) / totalStake 
+                : 0;
+
+            // Create leaf as hash of operator address and their reward amount
+            leaves[i] = keccak256(abi.encodePacked(operator, operatorRewards));
+        }
+
+        // Build merkle tree from leaves
+        while (leaves.length > 1) {
+            if (leaves.length % 2 == 1) {
+                bytes32[] memory newLeaves = new bytes32[](leaves.length + 1);
+                for (uint256 i = 0; i < leaves.length; i++) {
+                    newLeaves[i] = leaves[i];
+                }
+                newLeaves[leaves.length] = leaves[leaves.length - 1];
+                leaves = newLeaves;
+            }
+
+            bytes32[] memory newLeaves = new bytes32[](leaves.length / 2);
+            for (uint256 i = 0; i < leaves.length; i += 2) {
+                newLeaves[i/2] = _hashPair(leaves[i], leaves[i + 1]);
+            }
+            leaves = newLeaves;
+        }
+
+        return leaves[0];
+    }
+
+    function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+        return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
+    }
 
 //////////////////////////////////////////////////////////////////////
 
