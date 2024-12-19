@@ -121,65 +121,71 @@ contract Controller {
         emit CoverageClaimed(msg.sender, coveredAsset, amount);
     }
 //////////////////////////////// WIP ////////////////////////////////
-
     struct RebaseShares {
-        mapping(address => uint256) buyerShares;
-        mapping(address => uint256) lpShares;
+        uint256 totalBuyerShares;
+        uint256 totalLpShares;
     }
 
+    mapping(address => uint256) public buyerShares;
+    mapping(address => uint256) public lpShares;
     RebaseShares public rebaseShares;
-
-    // Add state variable to track accumulated LP rewards
     mapping(address => uint256) public accumulatedLpRewards;
+    uint256 private constant MINIMUM_REWARD_THRESHOLD = 1e18; // 1 token minimum threshold
+    uint256 private constant BUYER_SHARE_PERCENTAGE = 80;
+
+    event RebaseCalculated(
+        address indexed asset,
+        uint256 buyerShare,
+        uint256 lpShare,
+        uint256 excessAmount
+    );
 
     function calculateRebase() external onlyKeeper {
         uint256 numSupportedAssets = supportedAssets.length();
         
-        // Process each supported asset
         for (uint256 i = 0; i < numSupportedAssets; i++) {
             address coveredAsset = supportedAssets.at(i);
             address coverToken = coveredAssetToCoverToken[coveredAsset];
             
-            if (coverToken != address(0)) {
-                uint256 currentBalance = IERC20(coveredAsset).balanceOf(address(this));
-                uint256 coverTokenSupply = IERC20(coverToken).totalSupply();
+            if (coverToken == address(0)) continue;
 
-                // Only rebase if we have excess balance
-                if (currentBalance > coverTokenSupply) {
-                    uint256 excessAmount = currentBalance - coverTokenSupply;
-                    uint256 buyerShare = (excessAmount * 80) / 100; // 80% for cover buyers
-                    uint256 lpShare = excessAmount - buyerShare; // Remaining 20% for LPs
+            uint256 currentBalance = IERC20(coveredAsset).balanceOf(address(this));
+            uint256 coverTokenSupply = IERC20(coverToken).totalSupply();
 
-                    // Update state variables
-                    rebaseShares.buyerShares[coveredAsset] = buyerShare;
-                    rebaseShares.lpShares[coveredAsset] = lpShare;
+            if (currentBalance <= coverTokenSupply) continue;
 
-                    // Accumulate LP rewards
-                    accumulatedLpRewards[coveredAsset] += lpShare;
+            uint256 excessAmount = currentBalance - coverTokenSupply;
+            uint256 buyerShare = (excessAmount * BUYER_SHARE_PERCENTAGE) / 100;
+            uint256 lpShare = excessAmount - buyerShare;
 
-                    // If we have accumulated enough rewards, distribute them
-                    if (accumulatedLpRewards[coveredAsset] >= MINIMUM_REWARD_THRESHOLD) {
-                        // Create merkle root for LP rewards distribution
-                        bytes32 merkleRoot = _generateMerkleRoot(coveredAsset, accumulatedLpRewards[coveredAsset]);
-                        
-                        // Distribute rewards through operator rewards contract
-                        networkMiddleware.rewardOperators(
-                            coveredAsset,
-                            accumulatedLpRewards[coveredAsset],
-                            merkleRoot
-                        );
+            buyerShares[coveredAsset] = buyerShare;
+            lpShares[coveredAsset] = lpShare;
+            rebaseShares.totalBuyerShares += buyerShare;
+            rebaseShares.totalLpShares += lpShare;
+            accumulatedLpRewards[coveredAsset] += lpShare;
 
-                        // Reset accumulated rewards after distribution
-                        accumulatedLpRewards[coveredAsset] = 0;
-                    }
-
-                    emit RebaseCalculated(coveredAsset, buyerShare, lpShare);
-                }
+            if (accumulatedLpRewards[coveredAsset] >= MINIMUM_REWARD_THRESHOLD) {
+                _distributeRewards(coveredAsset);
             }
+
+            emit RebaseCalculated(coveredAsset, buyerShare, lpShare, excessAmount);
         }
     }
 
-    event RebaseCalculated(address indexed asset, uint256 buyerShare, uint256 lpShare);
+    function _distributeRewards(address coveredAsset) internal {
+        bytes32 merkleRoot = _generateMerkleRoot(
+            coveredAsset,
+            accumulatedLpRewards[coveredAsset]
+        );
+        
+        networkMiddleware.rewardOperators(
+            coveredAsset,
+            accumulatedLpRewards[coveredAsset],
+            merkleRoot
+        );
+
+        accumulatedLpRewards[coveredAsset] = 0;
+    }
 
     function _generateMerkleRoot(
         address asset,
@@ -188,28 +194,30 @@ contract Controller {
         uint256 numSupportedAssets = supportedAssets.length();
         uint256 totalStake;
         
-        // Calculate total stake across all operators
+        // Calculate total stake
         for (uint256 i = 0; i < numSupportedAssets; i++) {
             address operator = supportedAssets.at(i);
             totalStake += networkMiddleware.getVaultActiveBalance(vault, operator);
         }
+
+        if (totalStake == 0) return bytes32(0);
 
         // Build merkle tree leaves
         bytes32[] memory leaves = new bytes32[](numSupportedAssets);
         for (uint256 i = 0; i < numSupportedAssets; i++) {
             address operator = supportedAssets.at(i);
             uint256 operatorStake = networkMiddleware.getVaultActiveBalance(vault, operator);
-            
-            // Calculate operator's share of rewards based on stake ratio
-            uint256 operatorRewards = totalStake > 0 
-                ? (totalRewards * operatorStake) / totalStake 
-                : 0;
-
-            // Create leaf as hash of operator address and their reward amount
+            uint256 operatorRewards = (totalRewards * operatorStake) / totalStake;
             leaves[i] = keccak256(abi.encodePacked(operator, operatorRewards));
         }
 
-        // Build merkle tree from leaves
+        return _buildMerkleRoot(leaves);
+    }
+
+    function _buildMerkleRoot(bytes32[] memory leaves) internal pure returns (bytes32) {
+        if (leaves.length == 0) return bytes32(0);
+        if (leaves.length == 1) return leaves[0];
+
         while (leaves.length > 1) {
             if (leaves.length % 2 == 1) {
                 bytes32[] memory newLeaves = new bytes32[](leaves.length + 1);
@@ -233,7 +241,6 @@ contract Controller {
     function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
         return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
     }
-
 //////////////////////////////////////////////////////////////////////
 
 
