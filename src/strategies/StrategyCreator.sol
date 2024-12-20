@@ -20,6 +20,8 @@ contract StrategyCreator {
         uint256 market;
         /// @dev The fee charged for cover
         uint256 coverFee;
+        /// @dev The capacity multiplier for this strategy
+        uint256 capacityMultiplier;
     }
 
     /// @notice Mapping from strategy address to its parameters
@@ -37,13 +39,13 @@ contract StrategyCreator {
      * @dev Creates a new Strategy clone
      * @return Address of the newly created Strategy clone
      */
-    function createStrategy(address _collateralToken, uint256 _market, uint256 _coverFee) external returns (address) {
+    function createStrategy(address _collateralAsset, uint256 _market, uint256 _coverFee) external returns (address) {
         // Deploy a new strategy with cover token
         address clone = Clones.clone(implementation);
 
         // Store strategy parameters
         strategies[clone] = Strategy({
-            collateralToken: _collateralToken,
+            collateralToken: _collateralAsset,
             market: _market,
             coverFee: _coverFee
         });

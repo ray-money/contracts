@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {IVault} from "lib/core/src/interfaces/vault/IVault.sol";
-import {ICoverTokenFactory} from "./interfaces/ICoverTokenFactory.sol";
-import {ICoverToken} from "./interfaces/ICoverToken.sol";
+import {IStrategyCreator} from "./interfaces/IStrategyCreator.sol";
+import {IStrategy} from "./interfaces/IStrategy.sol";
 import {INetworkMiddleware} from "./interfaces/INetworkMiddleware.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "./interfaces/IERC20Metadata.sol";
 import {SafeERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+// import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title Controller
@@ -17,19 +17,19 @@ import {EnumerableSet} from "lib/openzeppelin-contracts/contracts/utils/structs/
  */
 contract Controller {
     using SafeERC20 for IERC20;
-    using EnumerableSet for EnumerableSet.AddressSet;
+    // using EnumerableSet for EnumerableSet.AddressSet;
 
     // ============ Storage ============
 
-    ICoverTokenFactory public immutable coverTokenFactory;
+    IStrategyCreator public immutable strategyCreator;
     INetworkMiddleware public immutable networkMiddleware;
     address public immutable keeper;
-    address public vault;
-    address public collateralAsset;
+    // address public vault; 
+    // address public collateralAsset;
     bool public initialized;
 
-    EnumerableSet.AddressSet private supportedAssets;
-    mapping(address => address) public coveredAssetToCoverToken;
+    // EnumerableSet.AddressSet private supportedAssets;
+    // mapping(address => address) public coveredAssetToCoverToken;
 
     // ============ Events ============
 
@@ -61,37 +61,62 @@ contract Controller {
     // ============ Constructor ============
 
     constructor(
-        address _coverTokenFactory,
+        address _strategyCreator,
         address _networkMiddleware,
-        address _keeper
+        address _keeper,
+        address[] memory _supportedAssets
     ) {
+        strategyCreator = IStrategyCreator(_strategyCreator);
         networkMiddleware = INetworkMiddleware(_networkMiddleware);
-        coverTokenFactory = ICoverTokenFactory(_coverTokenFactory);
         keeper = _keeper;
+
+        _setupSupportedAssets(_supportedAssets);
     }
 
     // ============ External Functions ============
 
-    function initialize(
-        address _collateralAsset,
-        uint48 _epochDuration,
-        address _defaultAdmin,
-        address[] memory _supportedAssets
-    ) external whenNotInitialized {
-        collateralAsset = _collateralAsset;
+
+    /**
+     * @notice Creates a new strategy for a collateral token
+     * @param collateralAsset The collateral asset for the strategy
+     * @param market The market ID this strategy is associated with
+     * @param coverFee The fee charged for cover
+     * @return The address of the newly created strategy
+     */
+    function createStrategy(
+        address collateralAsset,
+        address coveredAsset,
+        uint256 market,
+        uint256 coverFee,
+        uint48 epochDuration,
+        address defaultAdmin
+    ) external onlyKeeper returns (address) {
+        // Create new strategy via factory
+        address strategy = strategyCreator.createStrategy(
+            collateralAsset,
+            market,
+            coverFee
+        );
+
+        // Initialize the strategy
+        string memory name = string(abi.encodePacked("Cover Token ", IERC2Metadata(coveredAsset).name()));
+        string memory symbol = string(abi.encodePacked("cv", IERC2Metadata(coveredAsset).symbol()));
+        
+        IStrategy(strategy).initialize(
+            address(this),
+            address(markets),
+            collateralToken,
+            name,
+            symbol
+        );
 
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
-            _collateralAsset,
-            _epochDuration,
-            _defaultAdmin
+            collateralAsset,
+            epochDuration,
+            defaultAdmin
         );
-        vault = _vault;
 
-        _setupSupportedAssets(_supportedAssets);
-        _createCoverTokens(_supportedAssets);
-
-        initialized = true;
-        emit Initialized(_vault, _collateralAsset);
+        return strategy;
     }
 
     function buyCover(address coveredAsset, uint256 amount) external {
@@ -155,21 +180,21 @@ contract Controller {
 
     // ============ Internal Functions ============
 
-    function _calculateCapacity() internal view returns (uint256) {
-        uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
-        uint256 numSupportedAssets = supportedAssets.length();
+    // function _calculateCapacity() internal view returns (uint256) {
+    //     uint256 tokenBalance = networkMiddleware.getVaultActiveBalance(vault, address(this));
+    //     uint256 numSupportedAssets = supportedAssets.length();
         
-        uint256 totalCoverTokenSupply;
-        for (uint256 i = 0; i < numSupportedAssets; i++) {
-            address asset = supportedAssets.at(i);
-            address coverToken = coveredAssetToCoverToken[asset];
-            if (coverToken != address(0)) {
-                totalCoverTokenSupply += IERC20(coverToken).totalSupply();
-            }
-        }
+    //     uint256 totalCoverTokenSupply;
+    //     for (uint256 i = 0; i < numSupportedAssets; i++) {
+    //         address asset = supportedAssets.at(i);
+    //         address coverToken = coveredAssetToCoverToken[asset];
+    //         if (coverToken != address(0)) {
+    //             totalCoverTokenSupply += IERC20(coverToken).totalSupply();
+    //         }
+    //     }
 
-        return (tokenBalance * numSupportedAssets) - totalCoverTokenSupply;
-    }
+    //     return (tokenBalance * numSupportedAssets) - totalCoverTokenSupply;
+    // }
 
     function _setupSupportedAssets(address[] memory _supportedAssets) internal {
         for (uint256 i = 0; i < _supportedAssets.length; i++) {
@@ -177,19 +202,19 @@ contract Controller {
         }
     }
 
-    function _createCoverTokens(address[] memory _supportedAssets) internal {
-        for (uint256 i = 0; i < _supportedAssets.length; i++) {
-            address asset = _supportedAssets[i];
-            address coverToken = coverTokenFactory.createCoverToken();
+    // function _createCoverTokens(address[] memory _supportedAssets) internal {
+    //     for (uint256 i = 0; i < _supportedAssets.length; i++) {
+    //         address asset = _supportedAssets[i];
+    //         address coverToken = coverTokenFactory.createCoverToken();
             
-            ICoverToken(coverToken).initialize(
-                address(this),
-                asset,
-                string(abi.encodePacked("Ray ", IERC20Metadata(asset).name())),
-                string(abi.encodePacked("r", IERC20Metadata(asset).symbol()))
-            );
+    //         ICoverToken(coverToken).initialize(
+    //             address(this),
+    //             asset,
+    //             string(abi.encodePacked("Ray ", IERC20Metadata(asset).name())),
+    //             string(abi.encodePacked("r", IERC20Metadata(asset).symbol()))
+    //         );
             
-            coveredAssetToCoverToken[asset] = coverToken;
-        }
-    }
+    //         coveredAssetToCoverToken[asset] = coverToken;
+    //     }
+    // }
 }

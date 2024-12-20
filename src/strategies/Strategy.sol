@@ -8,7 +8,6 @@ import "../interfaces/IMarkets.sol";
 
 contract Strategy is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     address public collateralAsset;
-    address public markets;
     error InvalidOwner();
     error InvalidName();
     error InvalidSymbol();
@@ -23,7 +22,6 @@ contract Strategy is Initializable, ERC20Upgradeable, OwnableUpgradeable {
      */
     function initialize(
         address _owner,
-        address _markets,
         address _collateralAsset,
         string memory _name,
         string memory _symbol
