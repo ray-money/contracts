@@ -89,8 +89,7 @@ contract Controller {
         uint256 market,
         uint256 coverFee,
         uint256 capacityMultiplier,
-        uint48 epochDuration,
-        address defaultAdmin
+        uint48 epochDuration
     ) external onlyKeeper returns (address) {
         // Create new strategy via factory
         address strategy = strategyCreator.createStrategy(
@@ -115,7 +114,7 @@ contract Controller {
         (address _vault, , ) = networkMiddleware.createAndAuthorizeVault(
             collateralAsset,
             epochDuration,
-            defaultAdmin
+            address(this)
         );
 
         return strategy;
