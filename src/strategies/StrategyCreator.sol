@@ -42,8 +42,7 @@ contract StrategyCreator is IStrategyCreator {
     function createStrategy(
         address _collateralToken,
         uint256 _market,
-        uint256 _coverFee,
-        uint256 _capacityMultiplier
+        uint256 _coverFee
     ) external returns (address) {
         if (_collateralToken == address(0)) revert InvalidCollateralToken();
         
@@ -54,8 +53,7 @@ contract StrategyCreator is IStrategyCreator {
         strategies[clone] = Strategy({
             collateralToken: _collateralToken,
             market: _market,
-            coverFee: _coverFee,
-            capacityMultiplier: _capacityMultiplier
+            coverFee: _coverFee
         });
 
         emit StrategyCreated(clone, _collateralToken, _market);
