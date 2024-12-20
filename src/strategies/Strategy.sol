@@ -23,6 +23,7 @@ contract Strategy is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     function initialize(
         address _owner,
         address _collateralAsset,
+        address _markets,
         string memory _name,
         string memory _symbol
     ) external initializer {

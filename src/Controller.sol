@@ -28,7 +28,7 @@ contract Controller {
     // address public collateralAsset;
     bool public initialized;
 
-    // EnumerableSet.AddressSet private supportedAssets;
+    EnumerableSet.AddressSet private supportedAssets;
     // mapping(address => address) public coveredAssetToCoverToken;
 
     // ============ Events ============
@@ -88,6 +88,7 @@ contract Controller {
         address coveredAsset,
         uint256 market,
         uint256 coverFee,
+        uint256 capacityMultiplier,
         uint48 epochDuration,
         address defaultAdmin
     ) external onlyKeeper returns (address) {
@@ -95,7 +96,8 @@ contract Controller {
         address strategy = strategyCreator.createStrategy(
             collateralAsset,
             market,
-            coverFee
+            coverFee,
+            capacityMultiplier
         );
 
         // Initialize the strategy
@@ -105,7 +107,7 @@ contract Controller {
         IStrategy(strategy).initialize(
             address(this),
             address(markets),
-            collateralToken,
+            collateralAsset,
             name,
             symbol
         );
