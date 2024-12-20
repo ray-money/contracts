@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-interface ICoverToken {
+interface IStrategy {
     function initialize(
         address _owner,
+        address _markets,
         address _collateralAsset,
         string memory _name,
         string memory _symbol

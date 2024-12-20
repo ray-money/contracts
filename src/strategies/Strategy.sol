@@ -4,10 +4,11 @@ pragma solidity ^0.8.24;
 import "lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "../interfaces/IMarkets.sol";
 
-contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
+contract Strategy is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     address public collateralAsset;
-
+    address public markets;
     error InvalidOwner();
     error InvalidName();
     error InvalidSymbol();
@@ -22,6 +23,7 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
      */
     function initialize(
         address _owner,
+        address _markets,
         address _collateralAsset,
         string memory _name,
         string memory _symbol
@@ -30,6 +32,7 @@ contract CoverToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         if (bytes(_name).length == 0) revert InvalidName();
         if (bytes(_symbol).length == 0) revert InvalidSymbol();
         
+        markets = IMarkets(_markets);
         __ERC20_init(_name, _symbol);
         _transferOwnership(_owner);
         collateralAsset = _collateralAsset;
