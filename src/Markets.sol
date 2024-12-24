@@ -67,7 +67,7 @@ contract Markets {
                                  States
     //////////////////////////////////////////////////////////////*/
 
-    address immutable slasher;
+    address slasher;
 
     address admin;
 
@@ -110,24 +110,24 @@ contract Markets {
     }
 
     function operateMarket(uint8 _op, uint256 _marketID, bytes calldata _input) external {
-        if (msg.sender != markets[marketID].admin) revert ERR_AUTH;
+        if (msg.sender != markets[_marketID].admin) revert ERR_AUTH();
 
         (address _addr) = abi.decode(_input, (address));
         if (_op == 1) {
-            markets[marketID].claimOracle = _addr;
+            markets[_marketID].claimOracle = _addr;
         } else if (_op == 2) {
-            markets[marketID].coverLedger = _addr;
+            markets[_marketID].coverLedger = _addr;
         } else if (_op == 3) {
-            markets[marketID].capacityLedger = _addr;
+            markets[_marketID].capacityLedger = _addr;
         } else if (_op == 4) {
-            markets[marketID].feePricer = _addr;
+            markets[_marketID].feePricer = _addr;
         } else if (_op == 5) {
-            markets[marketID].admin = _addr;
+            markets[_marketID].admin = _addr;
         }
     }
 
     function changeSlasher(address _slasher) external {
-        if (msg.sender != admin) revert ERR_AUTH;
+        if (msg.sender != admin) revert ERR_AUTH();
         slasher = _slasher;
     } 
 }
