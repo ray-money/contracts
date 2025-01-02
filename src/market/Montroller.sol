@@ -1,38 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import {ERR_AUTH} from "./Errors.sol";
+import {
+    ERR_AUTH,
+    ERR_CLAIM_NOT_PAYABLE
+} from "../Errors.sol";
 
-// This object acts a controller for each market. 
-// Firstly, it maintains this model:
-// 1. cover and capacity balance
-// 2. claim oracle for determining payout
-// 3. the address for claim oracle, fee pricer, cover and capacity ledger
-//
-// Secondly, it can send these commands to control slasher, and cover and capacity ledger
-// 1. when there is a risk event, queue message to Slasher for downstream 
-//    objects to pull and execute slashes
-// 2. update cover and capacity ledger balances
-// 
-// The rationale for the queue is it decouples this Markets object from the Slasher object,
-// in other words, they are replaceable to each other. 
 
-// Parts:
-// Claim Oracle - only external depedency, may use a veto process
-// Fee Pricer - takes utilization (which is function of cover sum and capacity sum)
-// Cover Ledger - tracks cover balance
-// Capacity Ledger - tracks capacity allocation balance
+interface ClaimOracleLike {
+    // Returns true if the claim is payable, false otherwise.
+    // If true, the second return value is the percentage of cover that is payable, scaled 1e18.
+    function claimPayable() external returns (bool, uint256);
+}
 
-// Depedency diagram
-// Fee Pricer ---- cover sum ----> Cover Ledger
-//             \                       \
-//              \                       \ (check for remaining capacity before minting)
-//               \                       \
-//                \                       v    
-//                 \ -- capacity sum -- > Capacity Ledger 
-//
-// Claim Oracle (only external dependency)
-
+interface SlashQueueLike {
+    function queueSlash(address _capacityLedger) external;
+}
 
 /// @notice Keeps track of markets, and their claim oracle and capacity token.
 /// Anyone can create a market, but only the markets that created coverage matter.
@@ -48,6 +31,8 @@ contract Markets {
         address claimOracle;
 
         // Ledger for tracking capacity allocation
+        // Offers a per-block enumeration of capacity allocators and their allocation
+        // so they can be identified and slashed.
         address capacityLedger;
 
         // Ledger for tracking cover
@@ -67,7 +52,7 @@ contract Markets {
                                  States
     //////////////////////////////////////////////////////////////*/
 
-    address slasher;
+    address slashQueue;
 
     address admin;
 
@@ -79,9 +64,9 @@ contract Markets {
                                 Public interface
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address _admin, address _slasher) {
+    constructor(address _admin, address _slashQueue) {
         admin = _admin;
-        slasher = _slasher;
+        slashQueue = _slashQueue;
     }
 
     event MarketCreated(
@@ -126,8 +111,14 @@ contract Markets {
         }
     }
 
-    function changeSlasher(address _slasher) external {
+    function changeSlashQueue(address _slashQueue) external {
         if (msg.sender != admin) revert ERR_AUTH();
-        slasher = _slasher;
-    } 
+        slashQueue = _slashQueue;
+    }
+
+    function queueSlash(uint256 _marketID) external {
+        (bool _claimPayable, uint256 _claimPayablePercentage) = ClaimOracleLike(markets[_marketID].claimOracle).claimPayable();
+        if (!_claimPayable || _claimPayablePercentage == 0) revert ERR_CLAIM_NOT_PAYABLE(_marketID);
+        SlashQueueLike(slashQueue).queueSlash(markets[_marketID].capacityLedger);
+    }
 }
