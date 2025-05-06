@@ -1,5 +1,16 @@
 # Symbiotic CDS Insurance System
 
+```
+    ██████╗  █████╗ ██╗   ██╗
+    ██╔══██╗██╔══██╗╚██╗ ██╔╝
+    ██████╔╝███████║ ╚████╔╝ 
+    ██╔══██╗██╔══██║  ╚██╔╝  
+    ██║  ██║██║  ██║   ██║   
+    ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   
+```
+
+> **Note**: This is a Proof of Concept (PoC) implementation. The system is not yet production-ready and should be used for testing and development purposes only.
+
 This project implements a Credit Default Swap (CDS) like insurance system on Symbiotic that provides coverage against depegging events for ETH-pegged assets. The system acts as a Symbiotic Delegation Contract (SDC) with slashing mechanisms triggered when an ETH-pegged asset depegs from its target value.
 
 ## Overview
