@@ -1,4 +1,4 @@
-# PoC o fRay CDS Insurance on Symbiiotic
+# PoC of Ray CDS Insurance on Symbiiotic
 
 ```
     ██████╗  █████╗ ██╗   ██╗
