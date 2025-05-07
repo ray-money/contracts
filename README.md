@@ -1,4 +1,4 @@
-# Symbiotic CDS Insurance System
+# PoC o fRay CDS Insurance on Symbiiotic
 
 ```
     ██████╗  █████╗ ██╗   ██╗
